@@ -105,7 +105,7 @@ aside{display:flex;flex-direction:column;gap:14px;overflow:auto}
 .pop button:hover{background:var(--surface-2)}
 .pop .dot{width:9px;height:9px;border-radius:2px}
 .sheet{position:fixed;inset:0;background:rgba(10,20,18,.45);display:grid;place-items:center;z-index:30;padding:16px}
-.sheet .box{background:var(--surface);border-radius:var(--r);width:min(560px,100%);padding:18px;display:flex;flex-direction:column;gap:10px}
+.sheet .box{background:var(--surface);border-radius:var(--r);width:min(560px,100%);max-height:100%;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
 .sheet textarea{min-height:200px;border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:10px;font-family:var(--font-mono);font-size:12px;width:100%}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;z-index:40}
 .mobile-only{display:none}
@@ -133,7 +133,7 @@ aside{display:flex;flex-direction:column;gap:14px;overflow:auto}
   <header>
     <div class="brand"><h1>업무노트</h1><small>할 일 · 회의록 · 통화 · 거래처 · 업무일지</small></div>
     <span class="store" id="store"><i></i><span id="storeText">불러오는 중</span></span>
-    <button class="btn" id="backupBtn" type="button">백업·복원</button>
+    <button class="btn" id="backupBtn" type="button">설정·백업</button>
     <div class="menu">
       <button class="btn primary" id="newBtn" type="button" aria-haspopup="true">+ 새 메모</button>
       <div class="pop" id="newPop" hidden></div>
@@ -160,6 +160,18 @@ aside{display:flex;flex-direction:column;gap:14px;overflow:auto}
 </div>
 <div class="sheet" id="sheet" hidden>
   <div class="box">
+    <strong>구글 시트 연결</strong>
+    <span style="color:var(--muted);font-size:13px">앱스스크립트 웹 앱 주소와 토큰을 넣으면 PC·휴대폰이 같은 메모를 봅니다. 주소와 토큰은 이 기기에만 저장됩니다.</span>
+    <div class="grid2">
+      <div class="field"><label for="sheetUrl">웹 앱 주소</label><input id="sheetUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+      <div class="field"><label for="sheetToken">토큰</label><input id="sheetToken" type="password" autocomplete="off"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span id="sheetState" style="margin-right:auto;font-size:13px;color:var(--muted)"></span>
+      <button class="btn" id="sheetOff" type="button">연결 해제</button>
+      <button class="btn primary" id="sheetOn" type="button">연결</button>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:4px 0;width:100%">
     <strong>백업·복원</strong>
     <span style="color:var(--muted);font-size:13px">아래 내용을 복사해 두면 백업이 됩니다. 다른 기기에서 붙여넣고 '복원'을 누르면 메모가 합쳐집니다.</span>
     <textarea id="backupText" aria-label="백업 데이터"></textarea>
@@ -217,11 +229,23 @@ let memos = [], state = {type:"all", tag:null, q:"", sort:"updated", sel:null, d
 let ui = {}; try { ui = JSON.parse(localStorage.getItem("memo-ui")||"{}"); } catch(e){}
 if (ui.sort) state.sort = ui.sort; $("#sort").value = state.sort;
 
-/* ---------- storage: 클라우드(db) 우선, 안 되면 이 브라우저 ---------- */
-const LKEY = "work-memos-v1";
+/* ---------- storage: 구글 시트(연결돼 있으면) → 클라우드(db) → 이 브라우저 ---------- */
+const LKEY = "work-memos-v1", SKEY = "work-memos-sheet", QKEY = "work-memos-queue";
+async function sheetApi(url, token, body){
+  const ac = new AbortController(), timer = setTimeout(()=>ac.abort(), 25000);
+  try {
+    const r = await fetch(url, {method:"POST", body:JSON.stringify({...body, token}), signal:ac.signal});
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error||"error");
+    return j;
+  } finally { clearTimeout(timer); }
+}
 const store = {
   mode:"loading", col:null,
+  sheet:null, queue:[], online:true, lastSync:0, chain:Promise.resolve(),
   async init(){
+    try { this.sheet = JSON.parse(localStorage.getItem(SKEY)||"null"); } catch(e){}
+    if (this.sheet && this.sheet.url && this.sheet.token) return this.useSheet();
     let db=null, user=null;
     if (window.claude && window.claude.use) {
       try { [db,user] = await Promise.all([claude.use("db"), claude.use("user")]); } catch(e){}
@@ -241,23 +265,120 @@ const store = {
     setStoreLabel(); render();
   },
   persistLocal(){ try { localStorage.setItem(LKEY, JSON.stringify(memos)); } catch(e){ toast("브라우저 저장에 실패했습니다. 백업을 복사해 두세요"); } },
-  async save(m){
-    const i = memos.findIndex(x=>x.id===m.id); if (i>=0) memos[i]=m; else memos.push(m);
-    if (this.mode==="cloud") { const {id,...body}=m; try { await this.col.doc(m.id).set(body); } catch(e){ toast(e && e.code==="quota_exceeded" ? "저장 공간이 가득 찼습니다. 오래된 메모를 지워 주세요" : "저장하지 못했습니다. 잠시 후 다시 눌러 주세요"); return false; } }
+  async save(m){ return this.saveMany([m]); },
+  async saveMany(arr){
+    for (const m of arr){ const i = memos.findIndex(x=>x.id===m.id); if (i>=0) memos[i]=m; else memos.push(m); }
+    if (this.mode==="sheet") { this.persistLocal(); this.enqueue(arr); }
+    else if (this.mode==="cloud") {
+      for (const m of arr){ const {id,...body}=m; try { await this.col.doc(m.id).set(body); } catch(e){ toast(e && e.code==="quota_exceeded" ? "저장 공간이 가득 찼습니다. 오래된 메모를 지워 주세요" : "저장하지 못했습니다. 잠시 후 다시 눌러 주세요"); return false; } }
+    }
     else this.persistLocal();
     render(); return true;
   },
   async remove(id){
     memos = memos.filter(x=>x.id!==id);
-    if (this.mode==="cloud") { try { await this.col.doc(id).delete(); } catch(e){ toast("삭제하지 못했습니다"); } }
+    if (this.mode==="sheet") { this.persistLocal(); this.enqueue([{id, deleted:true, updatedAt:Date.now()}]); }
+    else if (this.mode==="cloud") { try { await this.col.doc(id).delete(); } catch(e){ toast("삭제하지 못했습니다"); } }
     else this.persistLocal();
     render();
+  },
+
+  /* 구글 시트: 화면과 이 브라우저(캐시)에 먼저 반영하고, 보낼 변경은 대기열에 쌓았다가 순서대로 보낸다 */
+  useSheet(){
+    try { memos = JSON.parse(localStorage.getItem(LKEY)||"[]"); } catch(e){ memos=[]; }
+    try { this.queue = JSON.parse(localStorage.getItem(QKEY)||"[]"); } catch(e){ this.queue=[]; }
+    this.mode = memos.length ? "sheet" : "loading";
+    setStoreLabel(); render();
+    this.pull(true);
+    setInterval(()=>{ if(!document.hidden) this.pull(); }, 60000);
+    document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) this.pull(); });
+    window.addEventListener("online", ()=>this.pull());
+  },
+  run(fn){ const p = this.chain.then(fn); this.chain = p.catch(()=>{}); return p; },
+  persistQueue(){ try { localStorage.setItem(QKEY, JSON.stringify(this.queue)); } catch(e){} },
+  enqueue(arr){
+    const ids = new Set(arr.map(m=>m.id));
+    this.queue = this.queue.filter(q=>!ids.has(q.id)).concat(JSON.parse(JSON.stringify(arr)));
+    this.persistQueue(); setStoreLabel();
+    this.run(()=>this.sendQueue());
+  },
+  async sendQueue(){
+    while (this.queue.length) {
+      const batch = this.queue.slice(0, 50);
+      let res;
+      try { res = await sheetApi(this.sheet.url, this.sheet.token, {action:"save", memos:batch}); this.online = true; }
+      catch(e){ this.online = false; setStoreLabel(); if (e.message==="unauthorized") toast("시트 토큰이 맞지 않습니다. 설정에서 다시 연결해 주세요"); return false; }
+      if (res.rejected && res.rejected.length) {
+        const names = res.rejected.map(id=>(memos.find(m=>m.id===id)||{}).title||id).join(", ");
+        toast("너무 길어서 시트에 저장하지 못했습니다: "+names);
+      }
+      this.queue = this.queue.filter(q=>!batch.includes(q)); this.persistQueue(); setStoreLabel();
+    }
+    return true;
+  },
+  overlayQueue(){
+    for (const q of this.queue){
+      const i = memos.findIndex(x=>x.id===q.id);
+      if (q.deleted) { if (i>=0) memos.splice(i,1); }
+      else if (i>=0) memos[i]=q; else memos.push(q);
+    }
+  },
+  pull(full){ return this.run(async()=>{
+    await this.sendQueue();
+    full = full || !this.lastSync;
+    let res;
+    try { res = await sheetApi(this.sheet.url, this.sheet.token, {action:"list", since: full ? 0 : this.lastSync-10000}); this.online = true; }
+    catch(e){ this.online = false; if (this.mode==="loading") { this.mode="sheet"; render(); } setStoreLabel(); return; }
+    const before = JSON.stringify(memos);
+    if (full) {
+      const server = res.memos.filter(m=>!m.deleted);
+      if (!this.sheet.synced) this.firstSync(server);
+      memos = server;
+    } else {
+      for (const r of res.memos){
+        const i = memos.findIndex(x=>x.id===r.id);
+        if (r.deleted) { if (i>=0) memos.splice(i,1); }
+        else if (i>=0) memos[i]=r; else memos.push(r);
+      }
+    }
+    this.overlayQueue();
+    this.lastSync = res.now; this.mode = "sheet";
+    this.persistLocal(); setStoreLabel();
+    if (JSON.stringify(memos)!==before) rerender();
+    await this.sendQueue();
+  }); },
+  // 이 기기에서 처음 연결할 때: 이 브라우저에만 있던 메모를 시트로 올릴지 묻는다
+  firstSync(server){
+    const ids = new Set(server.map(m=>m.id)), mine = memos.filter(m=>!ids.has(m.id));
+    if (mine.length) {
+      if (confirm(`이 브라우저에만 있는 메모 ${mine.length}개를 구글 시트로 올릴까요?\n\n취소를 누르면 시트에 있는 메모만 보입니다. (이 브라우저 메모는 따로 보관해 둡니다)`)) {
+        const ids2 = new Set(mine.map(m=>m.id));
+        this.queue = this.queue.filter(q=>!ids2.has(q.id)).concat(mine); this.persistQueue();
+      } else { try { localStorage.setItem(LKEY+"-before-sheet", JSON.stringify(mine)); } catch(e){} }
+    }
+    this.sheet.synced = true;
+    try { localStorage.setItem(SKEY, JSON.stringify(this.sheet)); } catch(e){}
   }
 };
 function setStoreLabel(){
   const el=$("#store"), t=$("#storeText");
+  if (store.mode==="sheet") {
+    const n=store.queue.length;
+    el.classList.toggle("cloud", store.online);
+    t.textContent = !store.online ? (n ? `시트 연결 안 됨 · 대기 ${n}개` : "시트 연결 안 됨") : n ? `구글 시트 · 보내는 중 ${n}개` : "구글 시트 · 모든 기기";
+    return;
+  }
   el.classList.toggle("cloud", store.mode==="cloud");
   t.textContent = store.mode==="cloud" ? "계정에 저장 · 모든 기기" : store.mode==="local" ? "이 브라우저에 저장" : "불러오는 중";
+}
+// 동기화로 목록이 바뀔 때: 편집 중이던 입력·커서·스크롤은 그대로 둔다
+function rerender(){
+  const a=document.activeElement, id=a && a.id, s=a && a.selectionStart, e=a && a.selectionEnd;
+  const body=$(".ed-body"), top=body ? body.scrollTop : 0, listTop=$("#list").scrollTop;
+  readDraftSafe(); render();
+  if ($(".ed-body")) $(".ed-body").scrollTop=top;
+  $("#list").scrollTop=listTop;
+  if (id) { const el=document.getElementById(id); if (el && el!==document.activeElement) { el.focus(); try { el.setSelectionRange(s,e); } catch(err){} } }
 }
 
 /* ---------- helpers ---------- */
@@ -399,14 +520,29 @@ document.addEventListener("click", async e=>{
   if(b.id==="toTodo"){ readDraft(); const lines=(state.draft.fields.actions||"").split("\n").map(s=>s.trim().replace(/^[-•·]\s*/,"")).filter(Boolean);
     if(!lines.length){ toast("후속 조치 칸에 한 줄에 하나씩 적어 주세요"); return; }
     await saveDraft(); const base=state.draft.title;
-    for(const l of lines){ const t=newMemo("todo"); t.title=l; t.fields.body="회의: "+base; t.tags=[...(state.draft.tags||[])]; t.createdAt=t.updatedAt=Date.now(); await store.save(t); }
+    await store.saveMany(lines.map(l=>{ const t=newMemo("todo"); t.title=l; t.fields.body="회의: "+base; t.tags=[...(state.draft.tags||[])]; t.createdAt=t.updatedAt=Date.now(); return t; }));
     toast(`할 일 ${lines.length}개를 만들었습니다`); return; }
   if(b.id==="seed"){ await seed(); return; }
-  if(b.id==="backupBtn"){ $("#backupText").value=JSON.stringify(memos,null,1); $("#sheet").hidden=false; return; }
+  if(b.id==="backupBtn"){ $("#backupText").value=JSON.stringify(memos,null,1);
+    const s=store.sheet||{}; $("#sheetUrl").value=s.url||""; $("#sheetToken").value=s.token||"";
+    $("#sheetState").textContent = store.mode==="sheet" ? "연결됨" : "연결 안 됨 · 이 브라우저에만 저장"; $("#sheetOff").hidden = store.mode!=="sheet";
+    $("#sheet").hidden=false; return; }
+  if(b.id==="sheetOn"){ const url=$("#sheetUrl").value.trim(), token=$("#sheetToken").value.trim();
+    if(!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)){ toast("웹 앱 주소는 https://script.google.com/…/exec 형식입니다"); return; }
+    if(!token){ toast("토큰을 넣어 주세요"); return; }
+    b.disabled=true; b.textContent="확인 중";
+    try{ await sheetApi(url, token, {action:"list", since:Date.now()}); }
+    catch(err){ toast(err.message==="unauthorized" ? "토큰이 맞지 않습니다" : "연결하지 못했습니다. 주소와 배포 설정(모든 사용자)을 확인해 주세요"); b.disabled=false; b.textContent="연결"; return; }
+    try{ localStorage.setItem(SKEY, JSON.stringify({url, token, synced:store.sheet?.url===url && !!store.sheet?.synced})); }catch(err){}
+    location.reload(); return; }
+  if(b.id==="sheetOff"){
+    if(store.queue.length && !confirm(`아직 시트로 못 보낸 변경이 ${store.queue.length}개 있습니다. 연결을 끊으면 이 변경은 시트에 올라가지 않습니다. 계속할까요?`)) return;
+    try{ localStorage.removeItem(SKEY); localStorage.removeItem(QKEY); }catch(err){}
+    location.reload(); return; }
   if(b.id==="closeSheet"){ $("#sheet").hidden=true; return; }
   if(b.id==="copyBackup"){ const ta=$("#backupText"); try{ await navigator.clipboard.writeText(ta.value); toast("복사했습니다"); }catch(err){ ta.focus(); ta.select(); toast("선택된 내용을 Ctrl+C로 복사하세요"); } return; }
   if(b.id==="restoreBackup"){ let arr; try{ arr=JSON.parse($("#backupText").value); if(!Array.isArray(arr)) throw 0; }catch(err){ toast("백업 형식이 아닙니다. 복사한 내용을 그대로 붙여넣어 주세요"); return; }
-    let n=0; for(const m of arr){ if(m && m.id && TYPES[m.type]){ await store.save(m); n++; } } $("#sheet").hidden=true; toast(`메모 ${n}개를 복원했습니다`); return; }
+    const ok=arr.filter(m=>m && m.id && TYPES[m.type]); await store.saveMany(ok); $("#sheet").hidden=true; toast(`메모 ${ok.length}개를 복원했습니다`); return; }
 });
 document.addEventListener("keydown", e=>{
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="s" && state.draft){ e.preventDefault(); saveDraft(); }
@@ -426,7 +562,7 @@ async function seed(){
     {type:"client",title:"[예시] 예시상사",fields:{person:"인사팀 담당자",phone:"02-000-0000",stage:"제안",period:"",notes:"오전 검진 선호",history:"10.15 첫 문의\n10.21 일정 안내"},tags:["예시","단체검진"]},
     {type:"daily",title:fmtDate(d(0))+" 업무일지 (예시)",fields:{date:d(0),done:"제안서 수정, 고객사 일정 안내",tomorrow:"단가표 확정",issues:""},tags:["예시"]}
   ];
-  for(const [i,m] of ex.entries()){ await store.save({...m,id:uid(),pinned:i===0,createdAt:now-i*1000,updatedAt:now-i*1000}); }
+  await store.saveMany(ex.map((m,i)=>({...m,id:uid(),pinned:i===0,createdAt:now-i*1000,updatedAt:now-i*1000})));
   toast("예시 메모를 넣었습니다. 확인 후 지워도 됩니다");
 }
 
