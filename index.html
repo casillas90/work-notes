@@ -14,7 +14,7 @@
   --bg:#f5f5f7; --surface:#ffffff; --fill:rgba(118,118,128,.12); --hover:rgba(0,0,0,.04); --sel:rgba(0,0,0,.06);
   --line:rgba(60,60,67,.13); --fg:#1d1d1f; --muted:#6e6e73;
   --accent:#0071e3; --accent-ink:#ffffff; --accent-soft:rgba(0,113,227,.11);
-  --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93; --t-snippet:#5856d6;
+  --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93; --t-snippet:#5856d6; --t-info:#30b0c7;
   --warn:#ff3b30; --warn-soft:rgba(255,59,48,.12); --soon:#c26b00; --soon-soft:rgba(255,149,0,.16);
   --glass:rgba(255,255,255,.78); --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05); --pop-shadow:0 12px 40px rgba(0,0,0,.16);
   --font-ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",system-ui,sans-serif;
@@ -25,14 +25,14 @@
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
   --line:rgba(84,84,88,.55); --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
-  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6;
+  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
   --line:rgba(84,84,88,.55); --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
-  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6;
+  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}
 body{margin:0}
@@ -246,7 +246,11 @@ const TYPES = {
             {k:"kind",l:"종류",t:"select",o:["메일","문자","카톡","기타"]},
             {k:"to",l:"받는 사람·쓰는 때",t:"text",ph:"예: 단체검진 문의 고객사"},
             {k:"subject",l:"메일 제목",t:"text"},
-            {k:"body",l:"내용",t:"area",wide:1,ph:"고객사명처럼 바뀌는 부분은 ○○로 적어 두면 편합니다"}]}
+            {k:"body",l:"내용",t:"area",wide:1,ph:"고객사명처럼 바뀌는 부분은 ○○로 적어 두면 편합니다"}]},
+  info:   {name:"정보", color:"--t-info", fields:[
+            {k:"category",l:"구분",t:"text",ph:"예: 사내 연락처, 검진 항목, 업무 절차"},
+            {k:"source",l:"링크·출처",t:"text",ph:"예: 사내 공지 주소, 담당 부서"},
+            {k:"body",l:"내용",t:"area",wide:1}]}
 };
 const DUE_FIELD = {todo:"due", call:"nextDate", meeting:"date", daily:"date"};
 const $ = s => document.querySelector(s);
@@ -459,7 +463,8 @@ function render(){
     }
     const sub = m.type==="client" ? (m.fields?.stage||"") : m.type==="call" ? [m.fields?.company,m.fields?.person].filter(Boolean).join(" · ")
       : m.type==="todo" ? [m.fields?.priority, m.fields?.status].filter(Boolean).join(" · ")
-      : m.type==="snippet" ? [m.fields?.kind, m.fields?.to].filter(Boolean).join(" · ") : "";
+      : m.type==="snippet" ? [m.fields?.kind, m.fields?.to].filter(Boolean).join(" · ")
+      : m.type==="info" ? (m.fields?.category||"") : "";
     const lead = m.type==="todo"
       ? `<button type="button" class="chk ${done?"done":""}" data-check="${m.id}" aria-label="완료 표시">${done?"✓":""}</button>`
       : `<span class="bar" style="background:var(${T.color})"></span>`;
