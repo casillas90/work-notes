@@ -14,7 +14,7 @@
   --bg:#f5f5f7; --surface:#ffffff; --fill:rgba(118,118,128,.12); --hover:rgba(0,0,0,.04); --sel:rgba(0,0,0,.06);
   --line:rgba(60,60,67,.13); --fg:#1d1d1f; --muted:#6e6e73;
   --accent:#0071e3; --accent-ink:#ffffff; --accent-soft:rgba(0,113,227,.11);
-  --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93;
+  --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93; --t-snippet:#5856d6;
   --warn:#ff3b30; --warn-soft:rgba(255,59,48,.12); --soon:#c26b00; --soon-soft:rgba(255,149,0,.16);
   --glass:rgba(255,255,255,.78); --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05); --pop-shadow:0 12px 40px rgba(0,0,0,.16);
   --font-ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",system-ui,sans-serif;
@@ -25,14 +25,14 @@
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
   --line:rgba(84,84,88,.55); --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
-  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d;
+  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
   --line:rgba(84,84,88,.55); --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
-  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d;
+  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}
 body{margin:0}
@@ -87,6 +87,9 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .item .chk.done{background:var(--t-todo);border-color:var(--t-todo);color:#fff}
 .item .bar{grid-row:1/3;width:10px;height:10px;border-radius:50%;margin:6px 5px 0}
 .item .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item.has-copy{padding-right:64px}
+.item .copy{position:absolute;right:12px;top:50%;transform:translateY(-50%);border:0;background:var(--fill);color:var(--accent);border-radius:980px;padding:4px 11px;font-size:12px;font-weight:600}
+.item .copy:hover{background:var(--accent);color:var(--accent-ink)}
 .item.done .t{text-decoration:line-through;color:var(--muted)}
 .item .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
 .mono{font-variant-numeric:tabular-nums}
@@ -238,7 +241,12 @@ const TYPES = {
             {k:"date",l:"날짜",t:"date"},
             {k:"done",l:"오늘 한 일",t:"area",wide:1},
             {k:"tomorrow",l:"내일 할 일",t:"area"},
-            {k:"issues",l:"이슈·메모",t:"area"}]}
+            {k:"issues",l:"이슈·메모",t:"area"}]},
+  snippet:{name:"자주 쓰는 문구", color:"--t-snippet", fields:[
+            {k:"kind",l:"종류",t:"select",o:["메일","문자","카톡","기타"]},
+            {k:"to",l:"받는 사람·쓰는 때",t:"text",ph:"예: 단체검진 문의 고객사"},
+            {k:"subject",l:"메일 제목",t:"text"},
+            {k:"body",l:"내용",t:"area",wide:1,ph:"고객사명처럼 바뀌는 부분은 ○○로 적어 두면 편합니다"}]}
 };
 const DUE_FIELD = {todo:"due", call:"nextDate", meeting:"date", daily:"date"};
 const $ = s => document.querySelector(s);
@@ -450,11 +458,13 @@ function render(){
       due=`<span class="pill ${cls} mono">${dd<0?`D+${-dd}`:dd===0?"오늘":`D-${dd}`}</span>`;
     }
     const sub = m.type==="client" ? (m.fields?.stage||"") : m.type==="call" ? [m.fields?.company,m.fields?.person].filter(Boolean).join(" · ")
-      : m.type==="todo" ? [m.fields?.priority, m.fields?.status].filter(Boolean).join(" · ") : "";
+      : m.type==="todo" ? [m.fields?.priority, m.fields?.status].filter(Boolean).join(" · ")
+      : m.type==="snippet" ? [m.fields?.kind, m.fields?.to].filter(Boolean).join(" · ") : "";
     const lead = m.type==="todo"
       ? `<button type="button" class="chk ${done?"done":""}" data-check="${m.id}" aria-label="완료 표시">${done?"✓":""}</button>`
       : `<span class="bar" style="background:var(${T.color})"></span>`;
-    return `<div class="item ${done?"done":""} ${state.sel===m.id?"sel":""}" data-id="${m.id}" tabindex="0">${lead}
+    const copy = m.type==="snippet" ? `<button type="button" class="copy" data-copy="${m.id}" aria-label="내용 복사">복사</button>` : "";
+    return `<div class="item ${done?"done":""} ${copy?"has-copy":""} ${state.sel===m.id?"sel":""}" data-id="${m.id}" tabindex="0">${lead}${copy}
       <div class="t">${m.pinned?'<span class="pin">고정</span> ':""}${esc(m.title||"(제목 없음)")}</div>
       <div class="meta"><span style="color:var(${T.color});font-weight:600">${T.name}</span>${sub?`<span>${esc(sub)}</span>`:""}${d?`<span class="mono">${fmtDate(d)}</span>`:""}${due}${tagsOf(m).map(t=>`<span>#${esc(t)}</span>`).join("")}</div></div>`;
   }).join("");
@@ -493,6 +503,7 @@ function renderEditor(){
       ${longF.map(fieldHtml).join("")}
       <div class="field"><label for="f-tags">태그 (쉼표로 구분)</label><input id="f-tags" value="${esc(tagsOf(m).join(", "))}" placeholder="예: 제안서, 독감접종, 단체검진"></div>
       ${m.type==="meeting"?`<button class="btn" type="button" id="toTodo" style="align-self:flex-start">후속 조치를 할 일로 만들기</button>`:""}
+      ${m.type==="snippet"?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="copyBody">내용 복사</button><button class="btn" type="button" id="copySubject">메일 제목 복사</button></div>`:""}
     </div>`;
 }
 function readDraft(){
@@ -517,6 +528,15 @@ async function saveDraft(){
   if(!m.title) m.title = m.type==="client" ? "이름 없는 거래처" : TYPES[m.type].name+" "+fmtDate(today());
   if(await store.save(JSON.parse(JSON.stringify(m)))){ state.sel=m.id; toast("저장했습니다"); }
 }
+async function copyText(s, what){
+  if(!s){ toast(what+"이 비어 있습니다"); return; }
+  try{ await navigator.clipboard.writeText(s); toast(what+"을 복사했습니다"); }
+  catch(err){
+    const ta=document.createElement("textarea"); ta.value=s; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.select();
+    let ok=false; try{ ok=document.execCommand("copy"); }catch(e2){} ta.remove();
+    toast(ok ? what+"을 복사했습니다" : "복사하지 못했습니다. 메모를 열어 직접 선택해 주세요");
+  }
+}
 let toastT; function toast(s){ const t=$("#toast"); t.textContent=s; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,2200); }
 
 /* ---------- events ---------- */
@@ -531,6 +551,9 @@ document.addEventListener("click", async e=>{
   if(b.dataset.check){ e.stopPropagation(); const m=memos.find(x=>x.id===b.dataset.check); if(!m) return;
     const c=JSON.parse(JSON.stringify(m)); c.fields.status = c.fields.status==="완료"?"대기":"완료"; c.updatedAt=Date.now();
     if(state.draft?.id===c.id) state.draft.fields.status=c.fields.status; await store.save(c); return; }
+  if(b.dataset.copy){ e.stopPropagation(); const m=memos.find(x=>x.id===b.dataset.copy); if(m) await copyText(m.fields?.body, "내용"); return; }
+  if(b.id==="copyBody"){ readDraft(); await copyText(state.draft.fields.body, "내용"); return; }
+  if(b.id==="copySubject"){ readDraft(); await copyText(state.draft.fields.subject, "메일 제목"); return; }
   if(b.dataset.id){ const m=memos.find(x=>x.id===b.dataset.id); if(m) openMemo(m); return; }
   if(b.id==="saveBtn"){ saveDraft(); return; }
   if(b.id==="back"){ state.draft=null; state.sel=null; render(); return; }
