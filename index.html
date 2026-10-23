@@ -19,7 +19,7 @@
   --bg:#f5f5f7; --surface:#ffffff; --fill:rgba(118,118,128,.12); --hover:rgba(0,0,0,.04); --sel:rgba(0,0,0,.06);
   --line:rgba(60,60,67,.13); --fg:#1d1d1f; --muted:#6e6e73;
   --accent:#0071e3; --accent-ink:#ffffff; --accent-soft:rgba(0,113,227,.11);
-  --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93; --t-snippet:#5856d6; --t-info:#30b0c7;
+  --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93; --t-snippet:#5856d6; --t-info:#30b0c7; --t-routine:#ff9500;
   --warn:#ff3b30; --warn-soft:rgba(255,59,48,.12); --soon:#c26b00; --soon-soft:rgba(255,149,0,.16);
   --glass:rgba(255,255,255,.78); --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05); --pop-shadow:0 12px 40px rgba(0,0,0,.16);
   --font-ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",system-ui,sans-serif;
@@ -30,14 +30,14 @@
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
   --line:rgba(84,84,88,.55); --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
-  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0;
+  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0; --t-routine:#ff9f0a;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
   --line:rgba(84,84,88,.55); --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
-  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0;
+  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0; --t-routine:#ff9f0a;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}
 body{margin:0}
@@ -220,6 +220,11 @@ const TYPES = {
             {k:"priority",l:"우선순위",t:"select",o:["높음","보통","낮음"]},
             {k:"status",l:"상태",t:"select",o:["대기","진행","완료"]},
             {k:"body",l:"내용",t:"area",wide:1}]},
+  // 매일 할 일: 오늘 체크하면 fields.doneDate=오늘 날짜, 날짜가 바뀌면 자동으로 다시 '안 함'
+  routine:{name:"매일 할 일", color:"--t-routine", fields:[
+            {k:"time",l:"시간",t:"time"},
+            {k:"repeat",l:"반복",t:"select",o:["매일","평일(월~금)"]},
+            {k:"body",l:"내용",t:"area",wide:1,ph:"예: 전날 검진 결과 업로드 확인, 내일 예약자 문자 발송"}]},
   meeting:{name:"회의록", color:"--t-meeting", fields:[
             {k:"date",l:"회의 날짜",t:"date"},
             {k:"attendees",l:"참석자",t:"text",ph:"예: 센터장님, 영업팀"},
@@ -227,7 +232,8 @@ const TYPES = {
             {k:"discussion",l:"논의 내용",t:"area",wide:1},
             {k:"decisions",l:"결정 사항",t:"area"},
             {k:"actions",l:"후속 조치 (담당자 · 기한)",t:"area"}]},
-  call:   {name:"통화·상담", color:"--t-call", fields:[
+  // 통화·상담: 새로 만들지 않음(hidden). 예전에 쓴 메모가 있으면 분류에 계속 보인다
+  call:   {name:"통화·상담", color:"--t-call", hidden:1, fields:[
             {k:"datetime",l:"일시",t:"datetime-local"},
             {k:"company",l:"회사",t:"text"},
             {k:"person",l:"담당자",t:"text"},
@@ -426,7 +432,9 @@ function dday(dstr){
   const a=new Date(dstr+"T00:00:00"), b=new Date(today()+"T00:00:00");
   return Math.round((a-b)/86400000);
 }
-function isDone(m){ return m.type==="todo" && m.fields?.status==="완료"; }
+function isDone(m){ return m.type==="routine" ? m.fields?.doneDate===today() : m.type==="todo" && m.fields?.status==="완료"; }
+function offToday(m){ const d=new Date().getDay(); return m.type==="routine" && m.fields?.repeat==="평일(월~금)" && (d===0||d===6); }
+const newTypes = () => Object.entries(TYPES).filter(([k,v])=>!v.hidden);
 function fmtDate(s){ return s ? s.replace(/-/g,".") : ""; }
 function tagsOf(m){ return (m.tags||[]); }
 
@@ -438,6 +446,10 @@ function filtered(){
   const key = state.sort;
   arr.sort((a,b)=>{
     if(!!b.pinned - !!a.pinned) return !!b.pinned - !!a.pinned;
+    if(a.type==="routine" && b.type==="routine" && key!=="created"){ // 안 한 것 먼저, 시간순
+      if(isDone(a)!==isDone(b)) return isDone(a)?1:-1;
+      const ta=a.fields?.time||"99", tb=b.fields?.time||"99"; if(ta!==tb) return ta<tb?-1:1;
+      return (a.createdAt||0)-(b.createdAt||0); }
     if(key==="due"){ const da=dueOf(a)||"9999", dbb=dueOf(b)||"9999"; if(isDone(a)!==isDone(b)) return isDone(a)?1:-1; return da<dbb?-1:da>dbb?1:0; }
     if(key==="created") return (b.createdAt||0)-(a.createdAt||0);
     return (b.updatedAt||0)-(a.updatedAt||0);
@@ -447,7 +459,7 @@ function filtered(){
 function render(){
   // types
   const counts = {all:memos.length}; Object.keys(TYPES).forEach(k=>counts[k]=memos.filter(m=>m.type===k).length);
-  $("#types").innerHTML = [["all","전체","--accent"],...Object.entries(TYPES).map(([k,v])=>[k,v.name,v.color])].map(([k,n,c]) =>
+  $("#types").innerHTML = [["all","전체","--accent"],...Object.entries(TYPES).filter(([k,v])=>!v.hidden||counts[k]).map(([k,v])=>[k,v.name,v.color])].map(([k,n,c]) =>
     `<button type="button" class="type-btn ${state.type===k?"on":""}" data-type="${k}"><span class="dot" style="background:var(${c})"></span>${n}<span class="n">${counts[k]}</span></button>`).join("");
   // tags
   const allTags=[...new Set(memos.flatMap(tagsOf))].sort();
@@ -469,8 +481,10 @@ function render(){
     const sub = m.type==="client" ? (m.fields?.stage||"") : m.type==="call" ? [m.fields?.company,m.fields?.person].filter(Boolean).join(" · ")
       : m.type==="todo" ? [m.fields?.priority, m.fields?.status].filter(Boolean).join(" · ")
       : m.type==="snippet" ? [m.fields?.kind, m.fields?.to].filter(Boolean).join(" · ")
-      : m.type==="info" ? (m.fields?.category||"") : "";
-    const lead = m.type==="todo"
+      : m.type==="info" ? (m.fields?.category||"")
+      : m.type==="routine" ? [m.fields?.repeat, m.fields?.time].filter(Boolean).join(" · ") : "";
+    if(m.type==="routine") due = offToday(m) ? `<span class="pill">오늘 쉼</span>` : done ? `<span class="pill">오늘 완료</span>` : "";
+    const lead = (m.type==="todo"||m.type==="routine")
       ? `<button type="button" class="chk ${done?"done":""}" data-check="${m.id}" aria-label="완료 표시">${done?"✓":""}</button>`
       : `<span class="bar" style="background:var(${T.color})"></span>`;
     const copy = m.type==="snippet" ? `<button type="button" class="copy" data-copy="${m.id}" aria-label="내용 복사">복사</button>` : "";
@@ -484,7 +498,7 @@ function renderEditor(){
   const ed=$("#editor"), m=state.draft;
   if(!m){
     ed.classList.add("closed");
-    ed.innerHTML=`<div class="placeholder"><div style="display:flex;flex-direction:column;gap:14px;align-items:center"><span>왼쪽 목록에서 메모를 고르거나 새로 만드세요</span><div class="quick">${Object.entries(TYPES).map(([k,v])=>`<button type="button" data-new="${k}"><span class="dot" style="background:var(${v.color})"></span>${v.name}</button>`).join("")}</div></div></div>`;
+    ed.innerHTML=`<div class="placeholder"><div style="display:flex;flex-direction:column;gap:14px;align-items:center"><span>왼쪽 목록에서 메모를 고르거나 새로 만드세요</span><div class="quick">${newTypes().map(([k,v])=>`<button type="button" data-new="${k}"><span class="dot" style="background:var(${v.color})"></span>${v.name}</button>`).join("")}</div></div></div>`;
     return;
   }
   ed.classList.remove("closed");
@@ -526,6 +540,7 @@ function readDraft(){
 function newMemo(type){
   const f={};
   if(type==="todo"){ f.priority="보통"; f.status="대기"; }
+  if(type==="routine") f.repeat="매일";
   if(type==="meeting"||type==="daily") f.date=today();
   if(type==="call"){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); f.datetime=d.toISOString().slice(0,16); }
   if(type==="daily") return {id:uid(),type,title:fmtDate(today())+" 업무일지",fields:f,tags:[],pinned:false};
@@ -559,8 +574,10 @@ document.addEventListener("click", async e=>{
   if(b.dataset.type){ state.type=b.dataset.type; render(); return; }
   if(b.dataset.tag){ state.tag = state.tag===b.dataset.tag?null:b.dataset.tag; render(); return; }
   if(b.dataset.check){ e.stopPropagation(); const m=memos.find(x=>x.id===b.dataset.check); if(!m) return;
-    const c=JSON.parse(JSON.stringify(m)); c.fields.status = c.fields.status==="완료"?"대기":"완료"; c.updatedAt=Date.now();
-    if(state.draft?.id===c.id) state.draft.fields.status=c.fields.status; await store.save(c); return; }
+    const c=JSON.parse(JSON.stringify(m)), k = c.type==="routine" ? "doneDate" : "status";
+    if(c.type==="routine") c.fields.doneDate = isDone(m) ? "" : today(); else c.fields.status = c.fields.status==="완료"?"대기":"완료";
+    c.updatedAt=Date.now();
+    if(state.draft?.id===c.id) state.draft.fields[k]=c.fields[k]; await store.save(c); return; }
   if(b.dataset.copy){ e.stopPropagation(); const m=memos.find(x=>x.id===b.dataset.copy); if(m) await copyText(m.fields?.body, "내용"); return; }
   if(b.id==="copyBody"){ readDraft(); await copyText(state.draft.fields.body, "내용"); return; }
   if(b.id==="copySubject"){ readDraft(); await copyText(state.draft.fields.subject, "메일 제목"); return; }
@@ -605,14 +622,14 @@ document.addEventListener("keydown", e=>{
 $("#q").addEventListener("input", e=>{ state.q=e.target.value; readDraftSafe(); render(); });
 $("#sort").addEventListener("change", e=>{ state.sort=e.target.value; try{ localStorage.setItem("memo-ui", JSON.stringify({sort:state.sort})); }catch(err){} readDraftSafe(); render(); });
 function readDraftSafe(){ if(state.draft && $("#f-title")) readDraft(); }
-$("#newPop").innerHTML = Object.entries(TYPES).map(([k,v])=>`<button type="button" data-new="${k}"><span class="dot" style="background:var(${v.color})"></span>${v.name}</button>`).join("");
+$("#newPop").innerHTML = newTypes().map(([k,v])=>`<button type="button" data-new="${k}"><span class="dot" style="background:var(${v.color})"></span>${v.name}</button>`).join("");
 
 async function seed(){
   const now=Date.now(), d=n=>{ const x=new Date(); x.setDate(x.getDate()+n); x.setMinutes(x.getMinutes()-x.getTimezoneOffset()); return x.toISOString().slice(0,10); };
   const ex=[
     {type:"todo",title:"[예시] 독감 예방접종 제안서 센터장님 보고",fields:{due:d(1),priority:"높음",status:"진행",body:"단가표, 접종 일정안 첨부"},tags:["예시","제안서"]},
     {type:"meeting",title:"[예시] 주간 영업 회의",fields:{date:d(-1),attendees:"센터장님, 영업팀",agenda:"하반기 단체검진 계약 현황",discussion:"입찰 일정과 제안 단가 검토",decisions:"제안 단가 확정 후 금요일까지 발송",actions:"- 단가표 수정 (김선준, 금)\n- 검진 일정표 정리 (영업팀, 다음 주 월)"},tags:["예시","회의"]},
-    {type:"call",title:"[예시] 단체검진 일정 문의",fields:{datetime:d(0)+"T10:30",company:"예시상사",person:"인사팀 담당자",phone:"02-000-0000",question:"임직원 80명 검진 가능 일정",answer:"11월 둘째 주 오전 가능 안내",nextDate:d(3)},tags:["예시","단체검진"]},
+    {type:"routine",title:"[예시] 내일 검진 예약자 안내 문자 발송",fields:{time:"16:00",repeat:"평일(월~금)",body:"예약 명단 확인 후 '자주 쓰는 문구'에서 안내 문자 복사"},tags:["예시"]},
     {type:"client",title:"[예시] 예시상사",fields:{person:"인사팀 담당자",phone:"02-000-0000",stage:"제안",period:"",notes:"오전 검진 선호",history:"10.15 첫 문의\n10.21 일정 안내"},tags:["예시","단체검진"]},
     {type:"daily",title:fmtDate(d(0))+" 업무일지 (예시)",fields:{date:d(0),done:"제안서 수정, 고객사 일정 안내",tomorrow:"단가표 확정",issues:""},tags:["예시"]}
   ];
@@ -622,6 +639,9 @@ async function seed(){
 
 render();
 store.init();
+// 날짜가 바뀌면 '매일 할 일' 체크가 풀린 화면으로 다시 그린다
+let shownDay = today();
+setInterval(()=>{ if(today()!==shownDay){ shownDay=today(); rerender(); } }, 60000);
 </script>
 </body>
 </html>
