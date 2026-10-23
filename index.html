@@ -20,7 +20,7 @@
    Look: 밝은 회색 바탕 위 흰 카드, 큰 둥근 모서리, 옅은 그림자, 헤어라인 구분선, 알약 버튼, 반투명 메뉴 */
 :root{
   --bg:#f5f5f7; --surface:#ffffff; --fill:rgba(118,118,128,.12); --hover:rgba(0,0,0,.04); --sel:rgba(0,0,0,.06);
-  --line:rgba(60,60,67,.13); --fg:#1d1d1f; --muted:#6e6e73;
+  --line:rgba(60,60,67,.13); --grid:#b9b9c0; --fg:#1d1d1f; --muted:#6e6e73;
   --accent:#0071e3; --accent-ink:#ffffff; --accent-soft:rgba(0,113,227,.11);
   --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93; --t-snippet:#5856d6; --t-info:#30b0c7; --t-routine:#ff9500;
   --warn:#ff3b30; --warn-soft:rgba(255,59,48,.12); --soon:#c26b00; --soon-soft:rgba(255,149,0,.16);
@@ -31,14 +31,14 @@
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
-  --line:rgba(84,84,88,.55); --fg:#f5f5f7; --muted:#98989d;
+  --line:rgba(84,84,88,.55); --grid:#5a5a60; --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
   --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0; --t-routine:#ff9f0a;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
-  --line:rgba(84,84,88,.55); --fg:#f5f5f7; --muted:#98989d;
+  --line:rgba(84,84,88,.55); --grid:#5a5a60; --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
   --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0; --t-routine:#ff9f0a;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
@@ -140,8 +140,8 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .field .rich{background:var(--fill);border-radius:10px;padding:9px 12px;min-height:84px;line-height:1.6;cursor:text;overflow-x:auto}
 .field .rich > div{white-space:pre-wrap;word-break:break-word}
 .field .rich table{border-collapse:collapse;margin:6px 0;background:var(--surface);font-size:13px}
-.field .rich td{border:1px solid var(--line);padding:5px 9px;vertical-align:top}
-.field .rich tr:first-child td{font-weight:600;background:var(--hover)}
+.field .rich td{border:1px solid var(--grid);padding:5px 10px;vertical-align:top}
+.field .rich tr:first-child td{font-weight:600;background:var(--sel)}
 .field .rich a{color:var(--accent)}
 .field.has-rich textarea,.field.has-rich.editing .rich{display:none}
 .field.has-rich.editing textarea{display:block}
