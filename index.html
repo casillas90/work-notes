@@ -693,7 +693,9 @@ document.addEventListener("click", async e=>{
   if(b.id==="newBtn"){ const p=$("#newPop"); p.hidden=!p.hidden; return; }
   if(b.dataset.new){ $("#newPop").hidden=true; openMemo(newMemo(b.dataset.new)); return; }
   if(b.dataset.type){ state.type=b.dataset.type; render(); return; }
-  if(b.dataset.tag){ state.tag = state.tag===b.dataset.tag?null:b.dataset.tag; render(); return; }
+  if(b.dataset.tag){ state.tag = state.tag===b.dataset.tag?null:b.dataset.tag;
+    if(state.tag) state.type="all"; // 태그를 고르면 분류와 상관없이 그 태그의 메모를 모두 보여 준다
+    readDraftSafe(); render(); return; }
   if(b.dataset.check){ e.stopPropagation(); const m=memos.find(x=>x.id===b.dataset.check); if(!m) return;
     const c=JSON.parse(JSON.stringify(m)), k = c.type==="routine" ? "doneDate" : "status";
     if(c.type==="routine") c.fields.doneDate = isDone(m) ? "" : today(); else c.fields.status = c.fields.status==="완료"?"대기":"완료";
