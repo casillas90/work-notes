@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-title" content="업무노트">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="apple-touch-icon.png">
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -48,7 +50,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:1
 button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid var(--accent-soft);outline-offset:1px}
-.app{height:100%;display:grid;grid-template-rows:auto 1fr;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 16px;gap:14px}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:calc(14px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));gap:14px}
 header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .brand{display:flex;align-items:baseline;gap:12px;margin-right:auto}
 .brand h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-.025em}
@@ -107,7 +109,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .ed-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .ed-head .kind{font-size:12px;font-weight:600;padding:3px 10px;border-radius:980px;color:#fff}
 .ed-head .stamp{font-size:12px;color:var(--muted);margin-right:auto}
-.ed-body{overflow:auto;padding:20px 22px 28px;display:flex;flex-direction:column;gap:16px}
+.ed-body{flex:1;min-height:0;overflow:auto;padding:20px 22px 28px;display:flex;flex-direction:column;gap:16px}
 .ed-title{border:0;border-bottom:1px solid var(--line);background:none;font-size:28px;font-weight:700;letter-spacing:-.025em;padding:2px 0 10px;width:100%}
 .ed-title:focus{outline:none;border-color:var(--accent)}
 .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
@@ -115,8 +117,10 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .field label{font-size:12px;color:var(--muted);font-weight:500;padding-left:2px}
 .field input,.field select,.field textarea{border:0;background:var(--fill);border-radius:10px;padding:9px 12px;width:100%;transition:box-shadow .15s}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;box-shadow:0 0 0 3px var(--accent-soft),inset 0 0 0 1px var(--accent)}
-.field textarea{min-height:84px;resize:vertical;line-height:1.6}
-.field.wide textarea{min-height:120px}
+/* 입력칸 안에서 스크롤하지 않게: 글 길이에 맞춰 늘어나고(fit), 큰 내용 칸은 남는 공간을 채운다 */
+.field textarea{min-height:84px;resize:none;overflow:hidden;line-height:1.6}
+.field.wide{flex:1 0 auto}
+.field.wide textarea{flex:1 0 auto;min-height:160px}
 .placeholder{flex:1;display:grid;place-items:center;color:var(--muted);padding:24px;text-align:center}
 .quick{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .quick button{border:0;background:var(--fill);border-radius:980px;padding:6px 14px;font-size:13px;display:inline-flex;gap:7px;align-items:center}
@@ -127,7 +131,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .pop button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:8px;display:flex;gap:10px;align-items:center}
 .pop button:hover{background:var(--accent);color:var(--accent-ink)}
 .pop .dot{width:9px;height:9px;border-radius:50%}
-.sheet{position:fixed;inset:0;background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:30;padding:16px}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:30;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
 .sheet .box{background:var(--surface);border-radius:18px;box-shadow:var(--pop-shadow);width:min(560px,100%);max-height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:10px}
 .sheet .box strong{font-size:17px;letter-spacing:-.015em}
 .sheet textarea{min-height:200px;border:0;background:var(--fill);border-radius:10px;padding:10px 12px;font-family:var(--font-mono);font-size:12px;width:100%}
@@ -525,11 +529,13 @@ function renderEditor(){
       <input class="ed-title" id="f-title" value="${esc(m.title)}" placeholder="${m.type==="client"?"회사명":"제목"}" aria-label="제목">
       ${shortF.length?`<div class="grid2">${shortF.map(fieldHtml).join("")}</div>`:""}
       ${longF.map(fieldHtml).join("")}
-      <div class="field"><label for="f-tags">태그 (쉼표로 구분)</label><input id="f-tags" value="${esc(tagsOf(m).join(", "))}" placeholder="예: 제안서, 독감접종, 단체검진"></div>
       ${m.type==="meeting"?`<button class="btn" type="button" id="toTodo" style="align-self:flex-start">후속 조치를 할 일로 만들기</button>`:""}
       ${m.type==="snippet"?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="copyBody">내용 복사</button><button class="btn" type="button" id="copySubject">메일 제목 복사</button></div>`:""}
+      <div class="field"><label for="f-tags">태그 (쉼표로 구분)</label><input id="f-tags" value="${esc(tagsOf(m).join(", "))}" placeholder="예: 제안서, 독감접종, 단체검진"></div>
     </div>`;
+  ed.querySelectorAll("textarea").forEach(fit);
 }
+function fit(ta){ ta.style.height="auto"; ta.style.height=ta.scrollHeight+"px"; }
 function readDraft(){
   const m=state.draft; if(!m) return;
   m.title=$("#f-title").value.trim();
@@ -619,7 +625,9 @@ document.addEventListener("keydown", e=>{
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="s" && state.draft){ e.preventDefault(); saveDraft(); }
   if(e.key==="Enter" && e.target.classList?.contains("item")){ const m=memos.find(x=>x.id===e.target.dataset.id); if(m) openMemo(m); }
 });
-$("#q").addEventListener("input", e=>{ state.q=e.target.value; readDraftSafe(); render(); });
+document.addEventListener("input", e=>{ if(e.target.matches("#editor textarea")) fit(e.target); });
+window.addEventListener("resize", ()=>document.querySelectorAll("#editor textarea").forEach(fit));
+$("#q").addEventListener("input",e=>{ state.q=e.target.value; readDraftSafe(); render(); });
 $("#sort").addEventListener("change", e=>{ state.sort=e.target.value; try{ localStorage.setItem("memo-ui", JSON.stringify({sort:state.sort})); }catch(err){} readDraftSafe(); render(); });
 function readDraftSafe(){ if(state.draft && $("#f-title")) readDraft(); }
 $("#newPop").innerHTML = newTypes().map(([k,v])=>`<button type="button" data-new="${k}"><span class="dot" style="background:var(${v.color})"></span>${v.name}</button>`).join("");
