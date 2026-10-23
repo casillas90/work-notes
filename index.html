@@ -136,6 +136,27 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .sheet .box{background:var(--surface);border-radius:18px;box-shadow:var(--pop-shadow);width:min(560px,100%);max-height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:10px}
 .sheet .box strong{font-size:17px;letter-spacing:-.015em}
 .sheet textarea{min-height:200px;border:0;background:var(--fill);border-radius:10px;padding:10px 12px;font-family:var(--font-mono);font-size:12px;width:100%}
+/* 표: 탭으로 나뉜 줄을 표로 보여 주는 칸(.rich). 누르면 원래 글 칸으로 바뀌어 고친다 */
+.field .rich{background:var(--fill);border-radius:10px;padding:9px 12px;min-height:84px;line-height:1.6;cursor:text;overflow-x:auto}
+.field .rich > div{white-space:pre-wrap;word-break:break-word}
+.field .rich table{border-collapse:collapse;margin:6px 0;background:var(--surface);font-size:13px}
+.field .rich td{border:1px solid var(--line);padding:5px 9px;vertical-align:top}
+.field .rich tr:first-child td{font-weight:600;background:var(--hover)}
+.field .rich a{color:var(--accent)}
+.field.has-rich textarea,.field.has-rich.editing .rich{display:none}
+.field.has-rich.editing textarea{display:block}
+.field.wide .rich{flex:1 0 auto;min-height:160px}
+.field .label{font-size:12px;color:var(--muted);font-weight:500;padding-left:2px}
+/* 사진 */
+.photos{display:flex;flex-wrap:wrap;gap:8px}
+.ph{position:relative;width:96px;height:96px;border-radius:10px;overflow:hidden;background:var(--fill)}
+.ph img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;display:block}
+.ph img:not([src]){visibility:hidden}
+.ph-x{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:14px;line-height:22px;padding:0}
+.ph-add{width:96px;height:96px;border-radius:10px;border:1.5px dashed var(--line);display:grid;place-items:center;color:var(--accent);font-size:13px;font-weight:600;cursor:pointer}
+.ph-add:hover{background:var(--hover)}
+.viewer{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:35;display:grid;place-items:center;padding:16px;cursor:zoom-out;overflow:auto}
+.viewer img{max-width:100%;max-height:100%;border-radius:6px}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);color:var(--fg);box-shadow:var(--pop-shadow);border:1px solid var(--line);padding:9px 18px;border-radius:980px;font-size:13px;font-weight:500;z-index:40;width:max-content;max-width:calc(100% - 32px);text-align:center}
 .mobile-only{display:none}
 @media (max-width:900px){
@@ -217,6 +238,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
     </div>
   </div>
 </div>
+<div class="viewer" id="viewer" hidden><img id="viewerImg" alt="사진 크게 보기"></div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -428,7 +450,9 @@ function rerender(){
   readDraftSafe(); render();
   if ($(".ed-body")) $(".ed-body").scrollTop=top;
   $("#list").scrollTop=listTop;
-  if (id) { const el=document.getElementById(id); if (el && el!==document.activeElement) { el.focus(); try { el.setSelectionRange(s,e); } catch(err){} } }
+  if (id) { const el=document.getElementById(id); if (el && el!==document.activeElement) {
+    const rich=el.closest(".has-rich"); if (rich) { rich.classList.add("editing"); fit(el); }
+    el.focus(); try { el.setSelectionRange(s,e); } catch(err){} } }
 }
 
 /* ---------- helpers ---------- */
@@ -496,7 +520,7 @@ function render(){
     const copy = m.type==="snippet" ? `<button type="button" class="copy" data-copy="${m.id}" aria-label="내용 복사">복사</button>` : "";
     return `<div class="item ${done?"done":""} ${copy?"has-copy":""} ${state.sel===m.id?"sel":""}" data-id="${m.id}" tabindex="0">${lead}${copy}
       <div class="t">${m.pinned?'<span class="pin">고정</span> ':""}${esc(m.title||"(제목 없음)")}</div>
-      <div class="meta"><span style="color:var(${T.color});font-weight:600">${T.name}</span>${sub?`<span>${esc(sub)}</span>`:""}${d?`<span class="mono">${fmtDate(d)}</span>`:""}${due}${tagsOf(m).map(t=>`<span>#${esc(t)}</span>`).join("")}</div></div>`;
+      <div class="meta"><span style="color:var(${T.color});font-weight:600">${T.name}</span>${sub?`<span>${esc(sub)}</span>`:""}${d?`<span class="mono">${fmtDate(d)}</span>`:""}${due}${(m.photos||[]).length?`<span>사진 ${m.photos.length}</span>`:""}${tagsOf(m).map(t=>`<span>#${esc(t)}</span>`).join("")}</div></div>`;
   }).join("");
   renderEditor();
 }
@@ -513,10 +537,15 @@ function renderEditor(){
     const v=esc(m.fields?.[f.k]||""), id="f-"+f.k;
     let input;
     if(f.t==="select") input=`<select id="${id}" data-f="${f.k}"><option value="">선택</option>${f.o.map(o=>`<option ${m.fields?.[f.k]===o?"selected":""}>${o}</option>`).join("")}</select>`;
-    else if(f.t==="area") input=`<textarea id="${id}" data-f="${f.k}" placeholder="${esc(f.ph||"")}">${v}</textarea>`;
+    else if(f.t==="area"){
+      const raw=m.fields?.[f.k]||"", table=hasTable(raw);
+      input=`${table?`<div class="rich" title="눌러서 고치기">${richHtml(raw)}</div>`:""}<textarea id="${id}" data-f="${f.k}" placeholder="${esc(f.ph||"")}">${v}</textarea>`;
+      return `<div class="field ${f.wide?"wide":""} ${table?"has-rich":""}"><label for="${id}">${f.l}</label>${input}</div>`;
+    }
     else input=`<input id="${id}" data-f="${f.k}" type="${f.t}" value="${v}" placeholder="${esc(f.ph||"")}">`;
     return `<div class="field ${f.wide?"wide":""}"><label for="${id}">${f.l}</label>${input}</div>`;
   };
+  const photos=(m.photos||[]).map(p=>`<div class="ph"><img data-photo="${esc(p.id)}" alt="사진"><button type="button" class="ph-x" data-unphoto="${esc(p.id)}" aria-label="사진 빼기">×</button></div>`).join("");
   const shortF=T.fields.filter(f=>f.t!=="area"), longF=T.fields.filter(f=>f.t==="area");
   ed.innerHTML=`
     <div class="ed-head">
@@ -533,11 +562,90 @@ function renderEditor(){
       ${longF.map(fieldHtml).join("")}
       ${m.type==="meeting"?`<button class="btn" type="button" id="toTodo" style="align-self:flex-start">후속 조치를 할 일로 만들기</button>`:""}
       ${m.type==="snippet"?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="copyBody">내용 복사</button><button class="btn" type="button" id="copySubject">메일 제목 복사</button></div>`:""}
+      <div class="field"><span class="label">사진</span><div class="photos">${photos}<label class="ph-add">+ 사진<input type="file" accept="image/*" multiple id="photoInput" hidden></label></div></div>
       <div class="field"><label for="f-tags">태그 (쉼표로 구분)</label><input id="f-tags" value="${esc(tagsOf(m).join(", "))}" placeholder="예: 제안서, 독감접종, 단체검진"></div>
     </div>`;
   ed.querySelectorAll("textarea").forEach(fit);
+  loadPhotos(ed);
 }
 function fit(ta){ ta.style.height="auto"; ta.style.height=ta.scrollHeight+"px"; }
+
+/* ---------- 표: 엑셀·시트·웹에서 붙여 넣은 표는 탭으로 나뉜 줄로 저장하고, 보기에서는 표로 그린다 ---------- */
+const hasTable = s => /\t/.test(s||"");
+const linkify = h => h.replace(/https?:\/\/[^\s<]+/g, u=>`<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+function richHtml(s){
+  const lines=String(s||"").replace(/\n+$/,"").split("\n"); let html="";
+  for(let i=0;i<lines.length;){
+    if(lines[i].includes("\t")){
+      const rows=[]; while(i<lines.length && lines[i].includes("\t")) rows.push(lines[i++].split("\t"));
+      const n=Math.max(...rows.map(r=>r.length));
+      html+=`<table>${rows.map(r=>`<tr>${Array.from({length:n},(_,j)=>`<td>${linkify(esc(r[j]||""))}</td>`).join("")}</tr>`).join("")}</table>`;
+    } else { html+=`<div>${linkify(esc(lines[i]))||"<br>"}</div>`; i++; }
+  }
+  return html;
+}
+// 웹페이지에서 복사한 표(HTML)를 탭·줄바꿈 글자로 바꾼다. 표 밖의 글은 줄 단위로 남긴다
+function htmlToText(html){
+  const doc=new DOMParser().parseFromString(html,"text/html"), out=[];
+  const walk=n=>{
+    if(n.nodeType===3){ out.push(n.nodeValue.replace(/\s+/g," ")); return; }
+    if(n.nodeType!==1 || /^(SCRIPT|STYLE|HEAD)$/.test(n.tagName)) return;
+    if(n.tagName==="TABLE"){ out.push("\n"+[...n.rows].map(r=>[...r.cells].map(c=>c.textContent.replace(/\s+/g," ").trim()).join("\t")).join("\n")+"\n"); return; }
+    if(n.tagName==="BR"){ out.push("\n"); return; }
+    const block=/^(P|DIV|LI|UL|OL|H[1-6]|SECTION|ARTICLE|BLOCKQUOTE|PRE)$/.test(n.tagName);
+    if(block) out.push("\n"); n.childNodes.forEach(walk); if(block) out.push("\n");
+  };
+  walk(doc.body);
+  return out.join("").replace(/ +\n/g,"\n").replace(/\n +/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+}
+function refreshRich(ta){
+  const field=ta.closest(".field"); if(!field) return;
+  let rich=field.querySelector(".rich");
+  if(!hasTable(ta.value)){ field.classList.remove("has-rich","editing"); if(rich) rich.remove(); return; }
+  if(!rich){ rich=document.createElement("div"); rich.className="rich"; rich.title="눌러서 고치기"; ta.before(rich); }
+  rich.innerHTML=richHtml(ta.value); field.classList.add("has-rich"); field.classList.remove("editing");
+}
+
+/* ---------- 사진: 줄여서(긴 변 2000px JPEG) 드라이브에 올리고, 메모에는 {id,w,h}만 남긴다 ---------- */
+const photoCache=new Map();
+function photoSrc(id){
+  if(!photoCache.has(id)){
+    const p=sheetApi(store.sheet.url, store.sheet.token, {action:"image", id}).then(r=>`data:${r.mime};base64,${r.data}`);
+    p.catch(()=>photoCache.delete(id)); photoCache.set(id,p);
+  }
+  return photoCache.get(id);
+}
+function loadPhotos(root){
+  if(store.mode!=="sheet" || !store.sheet) return;
+  root.querySelectorAll("img[data-photo]").forEach(img=>photoSrc(img.dataset.photo).then(src=>{ img.src=src; }).catch(()=>{ img.alt="불러오지 못함"; }));
+}
+async function shrink(file){
+  const url=URL.createObjectURL(file), img=new Image();
+  try { await new Promise((ok,no)=>{ img.onload=ok; img.onerror=no; img.src=url; }); } finally { URL.revokeObjectURL(url); }
+  const k=Math.min(1, 2000/Math.max(img.naturalWidth,img.naturalHeight)), c=document.createElement("canvas");
+  c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k);
+  const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
+  return {dataUrl:c.toDataURL("image/jpeg",0.85), w:c.width, h:c.height};
+}
+async function addPhotos(files){
+  const imgs=[...files].filter(f=>f.type.startsWith("image/")), d=state.draft;
+  if(!imgs.length || !d) return;
+  if(store.mode!=="sheet"){ toast("사진은 구글 시트에 연결한 뒤 넣을 수 있습니다"); return; }
+  readDraft(); toast(`사진 ${imgs.length}장 올리는 중…`);
+  let n=0;
+  for(const f of imgs){
+    try {
+      const s=await shrink(f);
+      const r=await sheetApi(store.sheet.url, store.sheet.token, {action:"upload", name:(f.name||"사진").replace(/\.\w+$/,"")+".jpg", mime:"image/jpeg", data:s.dataUrl.split(",")[1]});
+      photoCache.set(r.id, Promise.resolve(s.dataUrl));
+      (d.photos ||= []).push({id:r.id, w:s.w, h:s.h}); n++;
+    } catch(err){ toast(err.message==="unknown_action" ? "Apps Script를 새 버전으로 배포해야 사진을 넣을 수 있습니다" : "사진을 올리지 못했습니다. 잠시 후 다시 해 주세요"); }
+  }
+  if(!n) return;
+  if(state.draft===d) await saveDraft();
+  else { d.updatedAt=Date.now(); d.createdAt ||= d.updatedAt; await store.save(JSON.parse(JSON.stringify(d))); }
+  toast(`사진 ${n}장을 넣었습니다`);
+}
 function readDraft(){
   const m=state.draft; if(!m) return;
   m.title=$("#f-title").value.trim();
@@ -574,6 +682,11 @@ let toastT; function toast(s){ const t=$("#toast"); t.textContent=s; t.hidden=fa
 
 /* ---------- events ---------- */
 document.addEventListener("click", async e=>{
+  const img=e.target.closest("img[data-photo]");
+  if(img){ if(img.src){ $("#viewerImg").src=img.src; $("#viewer").hidden=false; } return; }
+  if(e.target.closest("#viewer")){ $("#viewer").hidden=true; return; }
+  const rich=e.target.closest(".rich");
+  if(rich && !e.target.closest("a")){ const f=rich.closest(".field"), ta=f.querySelector("textarea"); f.classList.add("editing"); fit(ta); ta.focus(); return; }
   const b=e.target.closest("button,[data-id]");
   if(!e.target.closest(".menu")) $("#newPop").hidden=true;
   if(!b) return;
@@ -587,6 +700,9 @@ document.addEventListener("click", async e=>{
     c.updatedAt=Date.now();
     if(state.draft?.id===c.id) state.draft.fields[k]=c.fields[k]; await store.save(c); return; }
   if(b.dataset.copy){ e.stopPropagation(); const m=memos.find(x=>x.id===b.dataset.copy); if(m) await copyText(m.fields?.body, "내용"); return; }
+  if(b.dataset.unphoto){
+    if(!confirm("이 사진을 메모에서 뺄까요?\n(드라이브 '업무노트 사진' 폴더에는 그대로 남습니다)")) return;
+    readDraft(); state.draft.photos=(state.draft.photos||[]).filter(p=>p.id!==b.dataset.unphoto); await saveDraft(); return; }
   if(b.id==="copyBody"){ readDraft(); await copyText(state.draft.fields.body, "내용"); return; }
   if(b.id==="copySubject"){ readDraft(); await copyText(state.draft.fields.subject, "메일 제목"); return; }
   if(b.dataset.id){ const m=memos.find(x=>x.id===b.dataset.id); if(m) openMemo(m); return; }
@@ -628,6 +744,18 @@ document.addEventListener("keydown", e=>{
   if(e.key==="Enter" && e.target.classList?.contains("item")){ const m=memos.find(x=>x.id===e.target.dataset.id); if(m) openMemo(m); }
 });
 document.addEventListener("input", e=>{ if(e.target.matches("#editor textarea")) fit(e.target); });
+document.addEventListener("focusout", e=>{ if(e.target.matches?.("#editor textarea")) refreshRich(e.target); });
+document.addEventListener("change", e=>{ if(e.target.id==="photoInput"){ const files=[...e.target.files]; e.target.value=""; addPhotos(files); } });
+document.addEventListener("paste", e=>{
+  const cd=e.clipboardData; if(!cd || !state.draft || !e.target.closest?.("#editor")) return;
+  const plain=cd.getData("text/plain"), html=cd.getData("text/html");
+  const files=[...cd.files].filter(f=>f.type.startsWith("image/"));
+  if(files.length && !plain){ e.preventDefault(); addPhotos(files); return; } // 캡처 이미지 붙여넣기
+  const ta=e.target; if(!ta.matches("textarea")) return;
+  if(hasTable(plain) || !/<table/i.test(html)) return; // 엑셀·구글 시트는 이미 탭으로 들어온다
+  const before=ta.value.slice(0,ta.selectionStart), lead = before && !before.endsWith("\n") ? "\n" : "";
+  e.preventDefault(); ta.setRangeText(lead+htmlToText(html)+"\n", ta.selectionStart, ta.selectionEnd, "end"); fit(ta);
+});
 window.addEventListener("resize", ()=>document.querySelectorAll("#editor textarea").forEach(fit));
 $("#q").addEventListener("input",e=>{ state.q=e.target.value; readDraftSafe(); render(); });
 $("#sort").addEventListener("change", e=>{ state.sort=e.target.value; try{ localStorage.setItem("memo-ui", JSON.stringify({sort:state.sort})); }catch(err){} readDraftSafe(); render(); });
