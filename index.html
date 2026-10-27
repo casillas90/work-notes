@@ -105,6 +105,10 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .pill.over{background:var(--warn-soft);color:var(--warn)}
 .pill.soon{background:var(--soon-soft);color:var(--soon)}
 .pin{color:var(--t-call);font-size:12px}
+.done-head{display:flex;align-items:center;gap:8px;width:100%;border:0;border-top:1px solid var(--line);background:none;margin-top:6px;padding:12px;font-size:13px;font-weight:600;color:var(--muted);text-align:left}
+.done-head:hover{color:var(--fg)}
+.done-head .arrow{width:14px}
+.done-head .n{font-weight:500;font-variant-numeric:tabular-nums}
 .empty{padding:40px 20px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:14px;align-items:center}
 .editor{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
 .ed-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -283,7 +287,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
     <span style="color:var(--muted);font-size:13px">아래 내용을 복사해 두면 백업이 됩니다. 다른 기기에서 붙여넣고 '복원'을 누르면 메모가 합쳐집니다.</span>
     <textarea id="backupText" aria-label="백업 데이터"></textarea>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.27-2</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
+      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.27-3</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
       <button class="btn" id="copyBackup" type="button">복사</button>
       <button class="btn" id="restoreBackup" type="button">복원</button>
       <button class="btn primary" id="closeSheet" type="button">닫기</button>
@@ -563,7 +567,10 @@ function render(){
   else if(!memos.length){
     $("#list").innerHTML=`<div class="empty"><strong style="color:var(--fg)">아직 메모가 없습니다</strong><span>위의 '+ 새 메모'에서 양식을 골라 첫 메모를 만들어 보세요.<br>어떻게 쓰는지 먼저 보고 싶다면 예시를 넣어 볼 수 있습니다.</span><button class="btn" type="button" id="seed">예시 메모 5개 넣기</button></div>`;
   } else if(!arr.length){ $("#list").innerHTML=`<div class="empty">조건에 맞는 메모가 없습니다</div>`; }
-  else $("#list").innerHTML = arr.map(m=>{
+  else {
+  // 완료된 할 일(매일 할 일 제외)은 목록 맨 아래 '완료됨'에 모아 접어 둔다
+  const doneArr=arr.filter(m=>m.type!=="routine" && isDone(m)), live=arr.filter(m=>!doneArr.includes(m));
+  const itemHtml = m=>{
     const T=TYPES[m.type]; const d=dueOf(m), dd=dday(d), done=isDone(m);
     let due="";
     if(d && !done && m.type!=="meeting" && m.type!=="daily"){
@@ -584,7 +591,10 @@ function render(){
     return `<div class="item ${done?"done":""} ${copy?"has-copy":""} ${state.sel===m.id?"sel":""}" data-id="${m.id}" tabindex="0">${lead}${copy}
       <div class="t">${m.pinned?'<span class="pin">고정</span> ':""}${esc(m.title||"(제목 없음)")}</div>
       <div class="meta"><span style="color:var(${T.color});font-weight:600">${T.name}</span>${sub?`<span>${esc(sub)}</span>`:""}${d?`<span class="mono">${fmtDate(d)}</span>`:""}${due}${(m.photos||[]).length?`<span>사진 ${m.photos.length}</span>`:""}${tagsOf(m).map(t=>`<span>#${esc(t)}</span>`).join("")}</div></div>`;
-  }).join("");
+  };
+  $("#list").innerHTML = live.map(itemHtml).join("")
+    + (doneArr.length ? `<button type="button" class="done-head" id="doneToggle" aria-expanded="${!!state.showDone}"><span class="arrow">${state.showDone?"▾":"▸"}</span>완료됨<span class="n">${doneArr.length}</span></button>${state.showDone?doneArr.map(itemHtml).join(""):""}` : "");
+  }
   renderEditor();
 }
 function renderEditor(){
@@ -755,6 +765,7 @@ document.addEventListener("click", async e=>{
   if(!e.target.closest(".menu")) $("#newPop").hidden=true;
   if(!b) return;
   if(b.id==="newBtn"){ const p=$("#newPop"); p.hidden=!p.hidden; return; }
+  if(b.id==="doneToggle"){ state.showDone=!state.showDone; readDraftSafe(); render(); return; }
   if(b.dataset.new){ $("#newPop").hidden=true; openMemo(newMemo(b.dataset.new)); return; }
   if(b.dataset.type){ state.type=b.dataset.type; render(); return; }
   if(b.dataset.tag){ state.tag = state.tag===b.dataset.tag?null:b.dataset.tag;
