@@ -282,7 +282,8 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
     <strong>백업·복원</strong>
     <span style="color:var(--muted);font-size:13px">아래 내용을 복사해 두면 백업이 됩니다. 다른 기기에서 붙여넣고 '복원'을 누르면 메모가 합쳐집니다.</span>
     <textarea id="backupText" aria-label="백업 데이터"></textarea>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
+      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.27-2</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
       <button class="btn" id="copyBackup" type="button">복사</button>
       <button class="btn" id="restoreBackup" type="button">복원</button>
       <button class="btn primary" id="closeSheet" type="button">닫기</button>
