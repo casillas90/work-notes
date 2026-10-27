@@ -22,7 +22,7 @@
   --bg:#f5f5f7; --surface:#ffffff; --fill:rgba(118,118,128,.12); --hover:rgba(0,0,0,.04); --sel:rgba(0,0,0,.06);
   --line:rgba(60,60,67,.13); --grid:#b9b9c0; --fg:#1d1d1f; --muted:#6e6e73;
   --accent:#0071e3; --accent-ink:#ffffff; --accent-soft:rgba(0,113,227,.11);
-  --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93; --t-snippet:#5856d6; --t-info:#30b0c7; --t-routine:#ff9500;
+  --t-todo:#007aff; --t-meeting:#af52de; --t-call:#ff9500; --t-client:#34c759; --t-daily:#8e8e93; --t-snippet:#5856d6; --t-info:#30b0c7; --t-routine:#ff9500; --t-mail:#ff2d55;
   --warn:#ff3b30; --warn-soft:rgba(255,59,48,.12); --soon:#c26b00; --soon-soft:rgba(255,149,0,.16);
   --glass:rgba(255,255,255,.78); --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05); --pop-shadow:0 12px 40px rgba(0,0,0,.16);
   --font-ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",system-ui,sans-serif;
@@ -33,14 +33,14 @@
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
   --line:rgba(84,84,88,.55); --grid:#5a5a60; --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
-  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0; --t-routine:#ff9f0a;
+  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0; --t-routine:#ff9f0a; --t-mail:#ff375f;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#000000; --surface:#1c1c1e; --fill:rgba(118,118,128,.24); --hover:rgba(255,255,255,.05); --sel:rgba(255,255,255,.09);
   --line:rgba(84,84,88,.55); --grid:#5a5a60; --fg:#f5f5f7; --muted:#98989d;
   --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.2);
-  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0; --t-routine:#ff9f0a;
+  --t-todo:#0a84ff; --t-meeting:#bf5af2; --t-call:#ff9f0a; --t-client:#30d158; --t-daily:#98989d; --t-snippet:#5e5ce6; --t-info:#40c8e0; --t-routine:#ff9f0a; --t-mail:#ff375f;
   --warn:#ff453a; --warn-soft:rgba(255,69,58,.2); --soon:#ff9f0a; --soon-soft:rgba(255,159,10,.18);
   --glass:rgba(44,44,46,.78); --shadow:0 0 0 1px rgba(255,255,255,.04); --pop-shadow:0 12px 40px rgba(0,0,0,.6); color-scheme:dark}
 body{margin:0}
@@ -179,6 +179,57 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
   .store{margin-right:auto}
   .brand small{display:none}
   aside .group-label{display:none}
+  /* 휴대폰(아이폰 Pro 402px 기준): 글자 16px(입력칸이 16px보다 작으면 iOS가 화면을 확대함), 누르는 곳 44px 안팎,
+     목록은 작은 상자 안이 아니라 화면 전체로 스크롤, '+ 새 메모'는 엄지가 닿는 오른쪽 아래 */
+  body{font-size:16px;-webkit-text-size-adjust:100%}
+  button,input,select,textarea,.item{touch-action:manipulation}
+  body:has(.editor:not(.closed)){overflow:hidden}
+  .app{display:block;height:auto;min-height:100%;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+  header{margin-bottom:14px}
+  header .btn{padding:9px 16px;font-size:15px}
+  .store{font-size:13px}
+  .desk{display:flex;flex-direction:column;gap:12px}
+  .type-btn{padding:9px 15px;font-size:15px}
+  .tag{padding:6px 13px;font-size:14px}
+  .list-pane{overflow:visible}
+  .list-tools{position:sticky;top:0;z-index:5;background:var(--surface);border-radius:var(--r) var(--r) 0 0;padding:12px 12px 10px}
+  .list-tools input,.list-tools select{font-size:16px;min-height:44px;padding:10px 12px}
+  .list{overflow:visible;padding:0 4px 4px}
+  .item{padding:14px 12px;gap:4px 14px}
+  .item::after{left:52px}
+  .item .t{font-size:16px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .item .meta{font-size:13px;gap:6px 9px}
+  .pill{font-size:12px}
+  .item .chk{width:26px;height:26px;font-size:14px;position:relative}
+  .item .chk::before{content:"";position:absolute;inset:-10px} /* 동그라미보다 넓게 눌리도록 */
+  .item .bar{margin:8px 8px 0}
+  .item.has-copy{padding-right:84px}
+  .item .copy{padding:9px 15px;font-size:14px}
+  .empty{font-size:15px}
+  .menu{position:fixed;z-index:22;right:max(18px,calc(env(safe-area-inset-right,0px) + 12px));bottom:calc(22px + env(safe-area-inset-bottom,0px))}
+  #newBtn{padding:15px 24px;font-size:17px;box-shadow:0 8px 24px rgba(0,113,227,.35)}
+  .pop{top:auto;bottom:calc(100% + 10px);min-width:220px}
+  .pop button{padding:13px 14px;font-size:16px}
+  .toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+  /* 편집 화면 */
+  .ed-head{flex-wrap:nowrap;gap:6px;padding:10px 12px}
+  .ed-head .stamp{display:none}
+  .ed-head .kind{margin-right:auto;white-space:nowrap}
+  .ed-head .btn{padding:9px 14px;font-size:15px;white-space:nowrap}
+  .ed-body{padding:18px 16px 48px;gap:18px}
+  .ed-title{font-size:24px}
+  .grid2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid2 .field:has(input[type=text]),.grid2 .field:has(input[type=url]),.grid2 .field:has(input[type=password]){grid-column:1/-1}
+  .field label,.field .label{font-size:13px}
+  .field input,.field select,.field textarea{font-size:16px;min-height:44px;padding:10px 12px}
+  .field .rich{font-size:16px}
+  .field .rich table{font-size:14px}
+  .ed-body .btn{padding:10px 16px;font-size:15px}
+  .photos{gap:8px}
+  .ph,.ph-add{width:calc((100% - 16px) / 3);height:auto;aspect-ratio:1}
+  .ph-x{width:30px;height:30px;line-height:30px;font-size:17px}
+  .sheet .box{padding:20px 16px}
+  .sheet .btn{padding:10px 16px;font-size:15px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -253,7 +304,17 @@ const TYPES = {
             {k:"time",l:"시간",t:"time"},
             {k:"repeat",l:"반복",t:"select",o:["매일","평일(월~금)"]},
             {k:"body",l:"내용",t:"area",wide:1,ph:"예: 전날 검진 결과 업로드 확인, 내일 예약자 문자 발송"}]},
-  meeting:{name:"회의록", color:"--t-meeting", fields:[
+  // 메일·요청: 거래처 메일로 받은 요청. 할 일처럼 체크·D-day·마감일 정렬이 된다
+  // 메일·요청·회의록·업무일지는 분류를 줄이려고 숨김(hidden). 예전에 쓴 메모가 있으면 분류에 계속 보인다
+  mail:   {name:"메일·요청", color:"--t-mail", hidden:1, fields:[
+            {k:"received",l:"받은 날",t:"date"},
+            {k:"due",l:"마감일",t:"date"},
+            {k:"company",l:"거래처",t:"text",ph:"예: 마크로젠"},
+            {k:"person",l:"보낸 사람",t:"text",ph:"예: 인사팀 과장님 (연락처·메일 주소는 메일 참고)"},
+            {k:"status",l:"상태",t:"select",o:["대기","진행","완료"]},
+            {k:"attach",l:"첨부",t:"text",ph:"예: 대상자 명단 첨부 있음 (내용은 옮기지 않기)"},
+            {k:"body",l:"요청 내용",t:"area",wide:1,ph:"무엇을 보내야 하는지, 메일 제목 등"}]},
+  meeting:{name:"회의록", color:"--t-meeting", hidden:1, fields:[
             {k:"date",l:"회의 날짜",t:"date"},
             {k:"attendees",l:"참석자",t:"text",ph:"예: 센터장님, 영업팀"},
             {k:"agenda",l:"안건",t:"area"},
@@ -276,7 +337,7 @@ const TYPES = {
             {k:"period",l:"계약 기간",t:"text",ph:"예: 2027.01 ~ 2029.12"},
             {k:"notes",l:"특이사항",t:"area"},
             {k:"history",l:"히스토리",t:"area",wide:1,ph:"날짜별로 한 줄씩 적어 두면 보기 편합니다"}]},
-  daily:  {name:"업무일지", color:"--t-daily", fields:[
+  daily:  {name:"업무일지", color:"--t-daily", hidden:1, fields:[
             {k:"date",l:"날짜",t:"date"},
             {k:"done",l:"오늘 한 일",t:"area",wide:1},
             {k:"tomorrow",l:"내일 할 일",t:"area"},
@@ -291,7 +352,7 @@ const TYPES = {
             {k:"source",l:"링크·출처",t:"text",ph:"예: 사내 공지 주소, 담당 부서"},
             {k:"body",l:"내용",t:"area",wide:1}]}
 };
-const DUE_FIELD = {todo:"due", call:"nextDate", meeting:"date", daily:"date"};
+const DUE_FIELD = {todo:"due", mail:"due", call:"nextDate", meeting:"date", daily:"date"};
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const today = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
@@ -462,7 +523,7 @@ function dday(dstr){
   const a=new Date(dstr+"T00:00:00"), b=new Date(today()+"T00:00:00");
   return Math.round((a-b)/86400000);
 }
-function isDone(m){ return m.type==="routine" ? m.fields?.doneDate===today() : m.type==="todo" && m.fields?.status==="완료"; }
+function isDone(m){ return m.type==="routine" ? m.fields?.doneDate===today() : (m.type==="todo"||m.type==="mail") && m.fields?.status==="완료"; }
 function offToday(m){ const d=new Date().getDay(); return m.type==="routine" && m.fields?.repeat==="평일(월~금)" && (d===0||d===6); }
 const newTypes = () => Object.entries(TYPES).filter(([k,v])=>!v.hidden);
 function fmtDate(s){ return s ? s.replace(/-/g,".") : ""; }
@@ -510,11 +571,12 @@ function render(){
     }
     const sub = m.type==="client" ? (m.fields?.stage||"") : m.type==="call" ? [m.fields?.company,m.fields?.person].filter(Boolean).join(" · ")
       : m.type==="todo" ? [m.fields?.priority, m.fields?.status].filter(Boolean).join(" · ")
+      : m.type==="mail" ? [m.fields?.company, m.fields?.status].filter(Boolean).join(" · ")
       : m.type==="snippet" ? [m.fields?.kind, m.fields?.to].filter(Boolean).join(" · ")
       : m.type==="info" ? (m.fields?.category||"")
       : m.type==="routine" ? [m.fields?.repeat, m.fields?.time].filter(Boolean).join(" · ") : "";
     if(m.type==="routine") due = offToday(m) ? `<span class="pill">오늘 쉼</span>` : done ? `<span class="pill">오늘 완료</span>` : "";
-    const lead = (m.type==="todo"||m.type==="routine")
+    const lead = (m.type==="todo"||m.type==="mail"||m.type==="routine")
       ? `<button type="button" class="chk ${done?"done":""}" data-check="${m.id}" aria-label="완료 표시">${done?"✓":""}</button>`
       : `<span class="bar" style="background:var(${T.color})"></span>`;
     const copy = m.type==="snippet" ? `<button type="button" class="copy" data-copy="${m.id}" aria-label="내용 복사">복사</button>` : "";
@@ -656,6 +718,7 @@ function readDraft(){
 function newMemo(type){
   const f={};
   if(type==="todo"){ f.priority="보통"; f.status="대기"; }
+  if(type==="mail"){ f.received=today(); f.status="대기"; }
   if(type==="routine") f.repeat="매일";
   if(type==="meeting"||type==="daily") f.date=today();
   if(type==="call"){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); f.datetime=d.toISOString().slice(0,16); }
@@ -768,10 +831,10 @@ async function seed(){
   const now=Date.now(), d=n=>{ const x=new Date(); x.setDate(x.getDate()+n); x.setMinutes(x.getMinutes()-x.getTimezoneOffset()); return x.toISOString().slice(0,10); };
   const ex=[
     {type:"todo",title:"[예시] 독감 예방접종 제안서 센터장님 보고",fields:{due:d(1),priority:"높음",status:"진행",body:"단가표, 접종 일정안 첨부"},tags:["예시","제안서"]},
-    {type:"meeting",title:"[예시] 주간 영업 회의",fields:{date:d(-1),attendees:"센터장님, 영업팀",agenda:"하반기 단체검진 계약 현황",discussion:"입찰 일정과 제안 단가 검토",decisions:"제안 단가 확정 후 금요일까지 발송",actions:"- 단가표 수정 (김선준, 금)\n- 검진 일정표 정리 (영업팀, 다음 주 월)"},tags:["예시","회의"]},
+    {type:"snippet",title:"[예시] 검진 일정 안내 문자",fields:{kind:"문자",to:"단체검진 고객사 담당자",subject:"",body:"안녕하세요, 진헬스검진센터입니다. ○○ 임직원 검진 일정은 ○월 ○일입니다. 전날 저녁 9시 이후 금식 부탁드립니다."},tags:["예시"]},
     {type:"routine",title:"[예시] 내일 검진 예약자 안내 문자 발송",fields:{time:"16:00",repeat:"평일(월~금)",body:"예약 명단 확인 후 '자주 쓰는 문구'에서 안내 문자 복사"},tags:["예시"]},
     {type:"client",title:"[예시] 예시상사",fields:{person:"인사팀 담당자",phone:"02-000-0000",stage:"제안",period:"",notes:"오전 검진 선호",history:"10.15 첫 문의\n10.21 일정 안내"},tags:["예시","단체검진"]},
-    {type:"daily",title:fmtDate(d(0))+" 업무일지 (예시)",fields:{date:d(0),done:"제안서 수정, 고객사 일정 안내",tomorrow:"단가표 확정",issues:""},tags:["예시"]}
+    {type:"info",title:"[예시] 사내 내선번호",fields:{category:"사내 연락처",source:"",body:"부서\t내선\n접수\t101\n상담\t102"},tags:["예시"]}
   ];
   await store.saveMany(ex.map((m,i)=>({...m,id:uid(),pinned:i===0,createdAt:now-i*1000,updatedAt:now-i*1000})));
   toast("예시 메모를 넣었습니다. 확인 후 지워도 됩니다");
