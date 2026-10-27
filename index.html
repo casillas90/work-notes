@@ -218,8 +218,8 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
   .ed-head .btn{padding:9px 14px;font-size:15px;white-space:nowrap}
   .ed-body{padding:18px 16px 48px;gap:18px}
   .ed-title{font-size:24px}
-  .grid2{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .grid2 .field:has(input[type=text]),.grid2 .field:has(input[type=url]),.grid2 .field:has(input[type=password]){grid-column:1/-1}
+  .grid2{grid-template-columns:minmax(0,1fr)} /* 한 줄에 한 칸 (2열은 아이폰 날짜칸이 옆 칸과 겹침) */
+  .field input[type=date],.field input[type=time],.field input[type=datetime-local]{-webkit-appearance:none;appearance:none;min-width:0;text-align:left}
   .field label,.field .label{font-size:13px}
   .field input,.field select,.field textarea{font-size:16px;min-height:44px;padding:10px 12px}
   .field .rich{font-size:16px}
