@@ -168,6 +168,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .field .rich .grid-ed td{padding:0;border:1px solid var(--grid)}
 .field .rich .grid-ed input{border:0;border-radius:0;background:none;padding:6px 8px;min-width:96px;width:100%;font-size:13px;min-height:0;box-shadow:none}
 .field .rich .grid-ed input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
+.field .rich .grid-ed td.ref{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
 .grid-tip{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7}
 .grid-tip code{font-family:var(--font-mono);background:var(--fill);border-radius:5px;padding:1px 5px;margin-right:2px}
 /* 사진 */
@@ -310,7 +311,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
     <span style="color:var(--muted);font-size:13px">아래 내용을 복사해 두면 백업이 됩니다. 다른 기기에서 붙여넣고 '복원'을 누르면 메모가 합쳐집니다.</span>
     <textarea id="backupText" aria-label="백업 데이터"></textarea>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.29-1</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
+      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.29-2</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
       <button class="btn" id="copyBackup" type="button">복사</button>
       <button class="btn" id="restoreBackup" type="button">복원</button>
       <button class="btn primary" id="closeSheet" type="button">닫기</button>
@@ -785,8 +786,32 @@ function gridWrite(){
 function gridTip(){
   const tip=$("#gridTip"); if(!tip || !grid) return;
   const raw=(grid.rows[grid.r]?.[grid.c]||"").trim(), name=colName(grid.c)+(grid.r+1);
-  tip.innerHTML = isFormula(raw) ? `<b>${name}</b> 결과: <b>${esc(fmtNum(calcTable(grid.rows)(grid.r,grid.c)))}</b>`
-    : `<b>${name}</b> · 수식은 = 로 시작 <code>=B2*C2</code> <code>=SUM(B2:B4)</code> <code>=AVERAGE(B2:B4)</code> MIN · MAX · COUNT · ROUND`;
+  tip.innerHTML = isFormula(raw) ? `<b>${name}</b> 결과: <b>${esc(fmtNum(calcTable(grid.rows)(grid.r,grid.c)))}</b> · + - * / ( : 뒤에서 다른 칸을 누르면 그 칸 이름이 들어갑니다`
+    : `<b>${name}</b> · 수식은 = 를 적고 칸을 누르면 칸 이름이 들어갑니다 <code>=B2*C2</code> <code>=SUM(B2:B4)</code> <code>=AVERAGE(B2:B4)</code> MIN · MAX · COUNT · ROUND`;
+  markRefs(raw);
+}
+// 수식에 쓰인 칸(B2, B2:B4)을 엑셀처럼 색으로 표시
+function markRefs(raw){
+  const box=grid.ta.closest(".field").querySelector(".grid-ed"); if(!box) return;
+  box.querySelectorAll("td.ref").forEach(td=>td.classList.remove("ref"));
+  if(!isFormula(raw)) return;
+  for(const m of raw.toUpperCase().matchAll(/\b([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?\b/g)){
+    const r1=+m[2]-1, c1=colNo(m[1]), r2=m[3]?+m[4]-1:r1, c2=m[3]?colNo(m[3]):c1;
+    for(let r=Math.min(r1,r2);r<=Math.max(r1,r2);r++) for(let c=Math.min(c1,c2);c<=Math.max(c1,c2);c++)
+      document.getElementById(`g-${grid.k}-${r}-${c}`)?.parentElement.classList.add("ref");
+  }
+}
+// 수식을 적는 중(= 로 시작하고 커서 바로 앞이 = ( , : 또는 + - * / ^)에 다른 칸을 누르면, 그 칸으로 옮기지 않고 칸 이름을 넣는다.
+// B2 누르고 : 적고 B4 누르면 B2:B4. 칸 이름 바로 뒤에서 누르면 평소처럼 그 칸으로 옮긴다(수식 칸에서 빠져나오기)
+function refPick(target){
+  const a=document.activeElement;
+  if(!grid || !a?.matches?.(".grid-ed input") || a===target) return false;
+  const v=a.value, s=a.selectionStart ?? v.length, e=a.selectionEnd ?? s;
+  if(!/^\s*=/.test(v) || !/[=(,:+\-*/^]\s*$/.test(v.slice(0,s))) return false;
+  const name=colName(+target.dataset.c)+(+target.dataset.r+1), end=s+name.length;
+  a.value=v.slice(0,s)+name+v.slice(e); a.setSelectionRange(end,end);
+  a.dispatchEvent(new Event("input",{bubbles:true}));
+  return true;
 }
 function gridAction(a){
   const {rows}=grid, n=rows[0].length;
@@ -954,6 +979,15 @@ document.addEventListener("keydown", e=>{
 document.addEventListener("input", e=>{
   if(e.target.matches("#editor textarea")) fit(e.target);
   if(grid && e.target.matches(".grid-ed input")){ grid.r=+e.target.dataset.r; grid.c=+e.target.dataset.c; grid.rows[+e.target.dataset.r][+e.target.dataset.c]=e.target.value.replace(/\t/g," "); gridWrite(); gridTip(); }
+});
+// 칸 이름 넣기: PC는 mousedown, 휴대폰은 손가락을 떼는 순간(스크롤하려고 움직였으면 무시). 막아야 커서·키보드가 원래 칸에 남는다
+document.addEventListener("mousedown", e=>{ const t=e.target.closest?.(".grid-ed input"); if(t && refPick(t)) e.preventDefault(); });
+let touchAt=null;
+document.addEventListener("touchstart", e=>{ touchAt = e.touches.length===1 ? [e.touches[0].clientX, e.touches[0].clientY] : null; }, {passive:true});
+document.addEventListener("touchend", e=>{
+  const t=e.target.closest?.(".grid-ed input"), p=e.changedTouches[0];
+  if(!t || !touchAt || Math.hypot(p.clientX-touchAt[0], p.clientY-touchAt[1])>10) return;
+  if(refPick(t)) e.preventDefault();
 });
 document.addEventListener("focusin", e=>{ if(grid && e.target.matches?.(".grid-ed input")){ grid.r=+e.target.dataset.r; grid.c=+e.target.dataset.c; gridTip(); } });
 document.addEventListener("focusout", e=>{ if(e.target.matches?.("#editor textarea")) refreshRich(e.target); });
