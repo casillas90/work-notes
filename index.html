@@ -147,8 +147,13 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .field .rich td{border:1px solid var(--grid);padding:5px 10px;vertical-align:top}
 .field .rich tr:first-child td{font-weight:600;background:var(--sel)}
 .field .rich a{color:var(--accent)}
-.field.has-rich textarea,.field.has-rich.editing .rich{display:none}
+.field.has-rich textarea{display:none}
 .field.has-rich.editing textarea{display:block}
+/* 글 칸을 고치는 중에도 표는 위에 미리보기로 남긴다(표 밖 글은 숨김) */
+.field.has-rich.editing .rich{min-height:0;cursor:default}
+.field.has-rich.editing .rich > div:not(.grid-ed){display:none}
+.field.has-rich.editing .rich::before{content:"표 미리보기 · 표를 누르면 칸으로 고칩니다";display:block;font-size:12px;color:var(--muted)}
+.field .rich .grid-ed input.fv{color:var(--accent);font-weight:600;text-align:right}
 .field.wide .rich{flex:1 0 auto;min-height:160px}
 .field .label{font-size:12px;color:var(--muted);font-weight:500;padding-left:2px}
 .label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -311,7 +316,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
     <span style="color:var(--muted);font-size:13px">아래 내용을 복사해 두면 백업이 됩니다. 다른 기기에서 붙여넣고 '복원'을 누르면 메모가 합쳐집니다.</span>
     <textarea id="backupText" aria-label="백업 데이터"></textarea>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.29-2</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
+      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.29-3</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
       <button class="btn" id="copyBackup" type="button">복사</button>
       <button class="btn" id="restoreBackup" type="button">복원</button>
       <button class="btn primary" id="closeSheet" type="button">닫기</button>
@@ -541,7 +546,7 @@ function rerender(){
   if ($(".ed-body")) $(".ed-body").scrollTop=top;
   $("#list").scrollTop=listTop;
   if (id) { const el=document.getElementById(id); if (el && el!==document.activeElement) {
-    const rich=el.matches("textarea") && el.closest(".has-rich"); if (rich) { rich.classList.add("editing"); fit(el); }
+    const rich=el.matches("textarea") && el.closest(".has-rich"); if (rich) { const rv=rich.querySelector(".rich"); if(rv) rv.dataset.src=el.value; rich.classList.add("editing"); fit(el); }
     el.focus(); try { el.setSelectionRange(s,e); } catch(err){} } }
 }
 
@@ -706,7 +711,12 @@ function refreshRich(ta){
   let rich=field.querySelector(".rich");
   if(!hasTable(ta.value)){ field.classList.remove("has-rich","editing"); if(rich) rich.remove(); return; }
   if(!rich){ rich=document.createElement("div"); rich.className="rich"; rich.title="눌러서 고치기"; ta.before(rich); }
-  rich.innerHTML=richHtml(ta.value); field.classList.add("has-rich"); field.classList.remove("editing");
+  syncRich(ta); field.classList.add("has-rich"); field.classList.remove("editing");
+}
+// 글이 바뀌었을 때만 다시 그린다(그대로면 누른 표가 사라지지 않게)
+function syncRich(ta){
+  const rich=ta.closest(".field")?.querySelector(".rich"); if(!rich || rich.dataset.src===ta.value) return;
+  rich.innerHTML=richHtml(ta.value); rich.dataset.src=ta.value;
 }
 
 /* ---------- 수식: '='로 시작하는 칸은 계산해서 보여 준다. 칸 이름은 엑셀처럼 A1(열 글자+행 번호, 표마다 따로) ---------- */
@@ -776,7 +786,17 @@ function drawGrid(fr,fc){
     + grid.rows.map((r,ri)=>`<tr><th>${ri+1}</th>${r.map((v,ci)=>`<td><input id="${id(ri,ci)}" data-r="${ri}" data-c="${ci}" value="${esc(v)}" autocomplete="off" aria-label="${colName(ci)}${ri+1}"></td>`).join("")}</tr>`).join("")
     + `</table></div><div class="grid-tip" id="gridTip"></div>`;
   if(fr!=null){ grid.r=Math.min(fr,grid.rows.length-1); grid.c=Math.min(fc,n-1); document.getElementById(id(grid.r,grid.c))?.focus(); }
-  gridTip();
+  gridValues(); gridTip();
+}
+// 엑셀처럼: 수식 칸은 고치는 중이 아니면 계산 결과를 보여 주고, 누르면 수식이 나온다. 숫자를 바꾸면 바로 다시 계산
+function gridValues(){
+  const box=grid && grid.ta.closest(".field").querySelector(".grid-ed"); if(!box) return;
+  const get=calcTable(grid.rows);
+  box.querySelectorAll("input[data-r]").forEach(inp=>{
+    if(inp===document.activeElement) return;
+    const r=+inp.dataset.r, c=+inp.dataset.c, raw=grid.rows[r][c], f=isFormula(raw);
+    inp.value = f ? fmtNum(get(r,c)) : raw; inp.classList.toggle("fv", f);
+  });
 }
 function gridWrite(){
   const lines=grid.ta.value.split("\n");
@@ -910,10 +930,13 @@ document.addEventListener("click", async e=>{
   if(img){ if(img.src){ $("#viewerImg").src=img.src; $("#viewer").hidden=false; } return; }
   if(e.target.closest("#viewer")){ $("#viewer").hidden=true; return; }
   if(e.target.closest(".grid-ed")){ const g=e.target.closest("[data-grid]"); if(g && grid) gridAction(g.dataset.grid); return; }
-  const tbl=e.target.closest(".rich table");
-  if(tbl && !e.target.closest("a")){ if(grid){ gridAction("done"); return; } openGrid(tbl); drawGrid(0,0); return; } // 다른 표를 열려 있던 중이면 먼저 닫기만
+  let tbl=e.target.closest(".rich table");
+  if(tbl && !e.target.closest("a")){ if(grid){ gridAction("done"); return; } // 다른 표를 열려 있던 중이면 먼저 닫기만
+    pressRich=null; const tf=tbl.closest(".field"); if(tf.classList.contains("editing")){ const ta=tf.querySelector("textarea"); syncRich(ta); tf.classList.remove("editing"); tbl=tf.querySelector(`.rich table[data-start="${tbl.dataset.start}"]`)||tbl; }
+    openGrid(tbl); drawGrid(0,0); return; }
   const rich=e.target.closest(".rich");
-  if(rich && !e.target.closest("a")){ grid=null; state.grid=null; const f=rich.closest(".field"), ta=f.querySelector("textarea"); f.classList.add("editing"); fit(ta); ta.focus(); return; }
+  if(rich && !e.target.closest("a")){ if(grid){ gridAction("done"); return; }
+    const f=rich.closest(".field"), ta=f.querySelector("textarea"); rich.dataset.src=ta.value; f.classList.add("editing"); fit(ta); ta.focus(); return; }
   const b=e.target.closest("button,[data-id]");
   if(!e.target.closest(".menu")) $("#newPop").hidden=true;
   if(!b) return;
@@ -978,7 +1001,9 @@ document.addEventListener("keydown", e=>{
 });
 document.addEventListener("input", e=>{
   if(e.target.matches("#editor textarea")) fit(e.target);
-  if(grid && e.target.matches(".grid-ed input")){ grid.r=+e.target.dataset.r; grid.c=+e.target.dataset.c; grid.rows[+e.target.dataset.r][+e.target.dataset.c]=e.target.value.replace(/\t/g," "); gridWrite(); gridTip(); }
+  if(grid && e.target.matches(".grid-ed input")){ grid.r=+e.target.dataset.r; grid.c=+e.target.dataset.c; grid.rows[+e.target.dataset.r][+e.target.dataset.c]=e.target.value.replace(/\t/g," "); gridWrite(); gridValues(); gridTip(); }
+  // 글 칸을 고치는 중에도 위의 표 미리보기를 바로 바꾼다
+  if(e.target.matches("#editor textarea") && e.target.closest(".has-rich.editing")) syncRich(e.target);
 });
 // 칸 이름 넣기: PC는 mousedown, 휴대폰은 손가락을 떼는 순간(스크롤하려고 움직였으면 무시). 막아야 커서·키보드가 원래 칸에 남는다
 document.addEventListener("mousedown", e=>{ const t=e.target.closest?.(".grid-ed input"); if(t && refPick(t)) e.preventDefault(); });
@@ -989,8 +1014,19 @@ document.addEventListener("touchend", e=>{
   if(!t || !touchAt || Math.hypot(p.clientX-touchAt[0], p.clientY-touchAt[1])>10) return;
   if(refPick(t)) e.preventDefault();
 });
-document.addEventListener("focusin", e=>{ if(grid && e.target.matches?.(".grid-ed input")){ grid.r=+e.target.dataset.r; grid.c=+e.target.dataset.c; gridTip(); } });
-document.addEventListener("focusout", e=>{ if(e.target.matches?.("#editor textarea")) refreshRich(e.target); });
+document.addEventListener("focusin", e=>{ if(grid && e.target.matches?.(".grid-ed input")){
+  const inp=e.target; grid.r=+inp.dataset.r; grid.c=+inp.dataset.c;
+  const raw=grid.rows[grid.r][grid.c]; // 결과가 보이던 수식 칸은 누르면 수식으로
+  if(inp.value!==raw){ inp.value=raw; inp.classList.remove("fv"); try{ inp.setSelectionRange(raw.length,raw.length); }catch(err){} }
+  gridValues(); gridTip(); } });
+// 미리보기 표를 누르는 중이면 글 칸을 닫지 않는다(닫으면 화면이 움직여 누른 표를 놓침). 표 열기는 click에서
+let pressRich=null;
+document.addEventListener("pointerdown", e=>{ pressRich=e.target.closest?.(".field.editing .rich table") || null; }, true);
+document.addEventListener("focusout", e=>{
+  if(!e.target.matches?.("#editor textarea")) return;
+  if(pressRich && pressRich.closest(".field")===e.target.closest(".field")) return;
+  refreshRich(e.target);
+});
 document.addEventListener("change", e=>{ if(e.target.id==="photoInput"){ const files=[...e.target.files]; e.target.value=""; addPhotos(files); } });
 document.addEventListener("paste", e=>{
   const cd=e.clipboardData; if(!cd || !state.draft || !e.target.closest?.("#editor")) return;
