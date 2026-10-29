@@ -151,6 +151,25 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .field.has-rich.editing textarea{display:block}
 .field.wide .rich{flex:1 0 auto;min-height:160px}
 .field .label{font-size:12px;color:var(--muted);font-weight:500;padding-left:2px}
+.label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mini{border:0;background:none;color:var(--accent);font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px}
+.mini:hover{background:var(--accent-soft)}
+.field .rich table{cursor:pointer}
+.field .rich td.num{text-align:right;font-variant-numeric:tabular-nums}
+.field .rich td.f{color:var(--accent);font-weight:600}
+/* 표 칸 편집 */
+.field .rich > .grid-ed{white-space:normal;background:var(--surface);border-radius:10px;padding:8px;margin:6px 0;box-shadow:0 0 0 2px var(--accent-soft);cursor:default}
+.grid-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.grid-bar .btn{padding:5px 12px;font-size:12px}
+.grid-bar .btn.primary{margin-left:auto}
+.grid-scroll{overflow-x:auto}
+.field .rich .grid-ed table{margin:0;cursor:default}
+.field .rich .grid-ed th{font-size:11px;color:var(--muted);font-weight:500;padding:2px 6px;background:var(--fill);border:1px solid var(--grid)}
+.field .rich .grid-ed td{padding:0;border:1px solid var(--grid)}
+.field .rich .grid-ed input{border:0;border-radius:0;background:none;padding:6px 8px;min-width:96px;width:100%;font-size:13px;min-height:0;box-shadow:none}
+.field .rich .grid-ed input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
+.grid-tip{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7}
+.grid-tip code{font-family:var(--font-mono);background:var(--fill);border-radius:5px;padding:1px 5px;margin-right:2px}
 /* 사진 */
 .photos{display:flex;flex-wrap:wrap;gap:8px}
 .ph{position:relative;width:96px;height:96px;border-radius:10px;overflow:hidden;background:var(--fill)}
@@ -228,6 +247,10 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
   .field input,.field select,.field textarea{font-size:16px;min-height:44px;padding:10px 12px}
   .field .rich{font-size:16px}
   .field .rich table{font-size:14px}
+  .mini{font-size:14px;padding:6px 10px}
+  .grid-bar .btn{padding:8px 12px;font-size:14px}
+  .field .rich .grid-ed input{font-size:16px;min-height:40px;min-width:88px}
+  .grid-tip{font-size:13px}
   .ed-body .btn{padding:10px 16px;font-size:15px}
   .photos{gap:8px}
   .ph,.ph-add{width:calc((100% - 16px) / 3);height:auto;aspect-ratio:1}
@@ -287,7 +310,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
     <span style="color:var(--muted);font-size:13px">아래 내용을 복사해 두면 백업이 됩니다. 다른 기기에서 붙여넣고 '복원'을 누르면 메모가 합쳐집니다.</span>
     <textarea id="backupText" aria-label="백업 데이터"></textarea>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.27-3</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
+      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 10.29-1</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
       <button class="btn" id="copyBackup" type="button">복사</button>
       <button class="btn" id="restoreBackup" type="button">복원</button>
       <button class="btn primary" id="closeSheet" type="button">닫기</button>
@@ -517,7 +540,7 @@ function rerender(){
   if ($(".ed-body")) $(".ed-body").scrollTop=top;
   $("#list").scrollTop=listTop;
   if (id) { const el=document.getElementById(id); if (el && el!==document.activeElement) {
-    const rich=el.closest(".has-rich"); if (rich) { rich.classList.add("editing"); fit(el); }
+    const rich=el.matches("textarea") && el.closest(".has-rich"); if (rich) { rich.classList.add("editing"); fit(el); }
     el.focus(); try { el.setSelectionRange(s,e); } catch(err){} } }
 }
 
@@ -600,7 +623,7 @@ function render(){
 function renderEditor(){
   const ed=$("#editor"), m=state.draft;
   if(!m){
-    ed.classList.add("closed"); fitEditor();
+    ed.classList.add("closed"); fitEditor(); grid=null; state.grid=null;
     ed.innerHTML=`<div class="placeholder"><div style="display:flex;flex-direction:column;gap:14px;align-items:center"><span>왼쪽 목록에서 메모를 고르거나 새로 만드세요</span><div class="quick">${newTypes().map(([k,v])=>`<button type="button" data-new="${k}"><span class="dot" style="background:var(${v.color})"></span>${v.name}</button>`).join("")}</div></div></div>`;
     return;
   }
@@ -613,7 +636,7 @@ function renderEditor(){
     else if(f.t==="area"){
       const raw=m.fields?.[f.k]||"", table=hasTable(raw);
       input=`${table?`<div class="rich" title="눌러서 고치기">${richHtml(raw)}</div>`:""}<textarea id="${id}" data-f="${f.k}" placeholder="${esc(f.ph||"")}">${v}</textarea>`;
-      return `<div class="field ${f.wide?"wide":""} ${table?"has-rich":""}"><label for="${id}">${f.l}</label>${input}</div>`;
+      return `<div class="field ${f.wide?"wide":""} ${table?"has-rich":""}"><div class="label-row"><label for="${id}">${f.l}</label><button type="button" class="mini" data-addtable="${id}">+ 표</button></div>${input}</div>`;
     }
     else input=`<input id="${id}" data-f="${f.k}" type="${f.t}" value="${v}" placeholder="${esc(f.ph||"")}">`;
     return `<div class="field ${f.wide?"wide":""}"><label for="${id}">${f.l}</label>${input}</div>`;
@@ -639,6 +662,10 @@ function renderEditor(){
       <div class="field"><label for="f-tags">태그 (쉼표로 구분)</label><input id="f-tags" value="${esc(tagsOf(m).join(", "))}" placeholder="예: 제안서, 독감접종, 단체검진"></div>
     </div>`;
   ed.querySelectorAll("textarea").forEach(fit);
+  // 다시 그려도(동기화·저장) 열려 있던 표 칸 편집은 그대로 연다
+  grid=null;
+  if(state.grid){ const g=state.grid, ta=g.id===m.id && document.getElementById("f-"+g.k), t=ta && ta.closest(".field").querySelector(`.rich table[data-start="${g.start}"]`);
+    if(t) openGrid(t); else state.grid=null; }
   loadPhotos(ed);
 }
 function fit(ta){ ta.style.height="auto"; ta.style.height=ta.scrollHeight+"px"; }
@@ -650,9 +677,11 @@ function richHtml(s){
   const lines=String(s||"").replace(/\n+$/,"").split("\n"); let html="";
   for(let i=0;i<lines.length;){
     if(lines[i].includes("\t")){
-      const rows=[]; while(i<lines.length && lines[i].includes("\t")) rows.push(lines[i++].split("\t"));
-      const n=Math.max(...rows.map(r=>r.length));
-      html+=`<table>${rows.map(r=>`<tr>${Array.from({length:n},(_,j)=>`<td>${linkify(esc(r[j]||""))}</td>`).join("")}</tr>`).join("")}</table>`;
+      const start=i, rows=[]; while(i<lines.length && lines[i].includes("\t")) rows.push(lines[i++].split("\t"));
+      const n=Math.max(...rows.map(r=>r.length)), get=calcTable(rows);
+      html+=`<table data-start="${start}" data-len="${rows.length}" title="눌러서 칸 고치기">${rows.map((r,ri)=>`<tr>${Array.from({length:n},(_,j)=>{
+        const raw=r[j]||"", f=isFormula(raw), v=f?get(ri,j):raw, num=typeof v==="number"||toNum(raw)!==null;
+        return `<td class="${f?"f":""} ${num?"num":""}"${f?` title="${esc(raw.trim())}"`:""}>${f?esc(fmtNum(v)):linkify(esc(raw))}</td>`; }).join("")}</tr>`).join("")}</table>`;
     } else { html+=`<div>${linkify(esc(lines[i]))||"<br>"}</div>`; i++; }
   }
   return html;
@@ -677,6 +706,102 @@ function refreshRich(ta){
   if(!hasTable(ta.value)){ field.classList.remove("has-rich","editing"); if(rich) rich.remove(); return; }
   if(!rich){ rich=document.createElement("div"); rich.className="rich"; rich.title="눌러서 고치기"; ta.before(rich); }
   rich.innerHTML=richHtml(ta.value); field.classList.add("has-rich"); field.classList.remove("editing");
+}
+
+/* ---------- 수식: '='로 시작하는 칸은 계산해서 보여 준다. 칸 이름은 엑셀처럼 A1(열 글자+행 번호, 표마다 따로) ---------- */
+const FN={ SUM:a=>a.reduce((s,x)=>s+x,0), AVERAGE:a=>a.length?FN.SUM(a)/a.length:0, MIN:a=>a.length?Math.min(...a):0, MAX:a=>a.length?Math.max(...a):0, COUNT:a=>a.length };
+FN.AVG=FN.AVERAGE;
+const isFormula = s => /^=./.test(String(s||"").trim());
+const toNum = v => { if(typeof v==="number") return v; const s=String(v??"").replace(/,/g,"").trim(); return s!=="" && isFinite(+s) ? +s : null; };
+const fmtNum = v => typeof v==="number" ? (Math.round(v*100)/100).toLocaleString("ko-KR") : String(v);
+const colNo = s => [...s].reduce((c,ch)=>c*26+ch.charCodeAt(0)-64,0)-1;
+const colName = c => { let s=""; for(c++;c>0;c=Math.floor((c-1)/26)) s=String.fromCharCode(65+(c-1)%26)+s; return s; };
+// rows(2차원 글자 배열)를 받아 (r,c) → 값(숫자·글자, 틀리면 '#오류' 같은 글자)을 돌려주는 함수를 만든다
+function calcTable(rows){
+  const memo=new Map(), busy=new Set();
+  const cell=(r,c)=>{
+    const k=r+","+c; if(memo.has(k)) return memo.get(k);
+    const raw=String(rows[r]?.[c]??"").trim(); let v;
+    if(isFormula(raw)){ if(busy.has(k)) throw "#순환"; busy.add(k); try{ v=formula(raw.slice(1)); } finally{ busy.delete(k); } }
+    else v=toNum(raw) ?? raw;
+    memo.set(k,v); return v;
+  };
+  const ref = t => { const m=/^([A-Z]+)(\d+)$/.exec(t); return [+m[2]-1, colNo(m[1])]; };
+  const range = t => { const [a,b]=t.split(":").map(ref), out=[];
+    for(let r=Math.min(a[0],b[0]);r<=Math.max(a[0],b[0]);r++) for(let c=Math.min(a[1],b[1]);c<=Math.max(a[1],b[1]);c++) out.push(cell(r,c));
+    return out; };
+  const num = v => { const x=toNum(v); if(x!==null) return x; if(v===""||v==null) return 0; throw "#값"; };
+  function formula(src){
+    src=src.trim(); const toks=[], re=/\s*([A-Za-z]+\d+:[A-Za-z]+\d+|[A-Za-z]+\d+|[A-Za-z]+|\d+(?:\.\d+)?|\.\d+|[-+*/^%(),])/y; let m;
+    while(re.lastIndex<src.length){ if(!(m=re.exec(src))) throw "#오류"; toks.push(m[1].toUpperCase()); }
+    let p=0; const peek=()=>toks[p], eat=t=>{ if(toks[p]!==t) throw "#오류"; p++; };
+    const expr=()=>{ let v=term(); while(peek()==="+"||peek()==="-"){ const o=toks[p++], w=term(); v = o==="+" ? v+w : v-w; } return v; };
+    const term=()=>{ let v=pow(); while(peek()==="*"||peek()==="/"){ const o=toks[p++], w=pow(); if(o==="/" && w===0) throw "#0나눔"; v = o==="*" ? v*w : v/w; } return v; };
+    const pow=()=>{ let v=unary(); while(peek()==="^"){ p++; v=Math.pow(v,unary()); } return v; };
+    const unary=()=>{ if(peek()==="-"){ p++; return -unary(); } if(peek()==="+"){ p++; return unary(); } let v=prim(); while(peek()==="%"){ p++; v/=100; } return v; };
+    const prim=()=>{ const t=toks[p++]; if(t===undefined) throw "#오류";
+      if(t==="("){ const v=expr(); eat(")"); return v; }
+      if(/^[\d.]/.test(t)) return +t;
+      if(/^[A-Z]+\d+$/.test(t)) return num(cell(...ref(t)));
+      if(/^[A-Z]+$/.test(t)){
+        eat("("); const args=[];
+        if(peek()!==")") do{ args.push(...(/:/.test(peek()) ? range(toks[p++]).map(toNum).filter(x=>x!==null) : [expr()])); } while(peek()==="," && ++p);
+        eat(")");
+        if(t==="ROUND"){ const d=args[1]||0; return Math.round(args[0]*10**d)/10**d; }
+        if(!FN[t]) throw "#함수"; return FN[t](args);
+      }
+      throw "#오류"; };
+    const v=expr(); if(p!==toks.length || !isFinite(v)) throw "#오류"; return v;
+  }
+  return (r,c)=>{ try{ return cell(r,c); }catch(e){ return typeof e==="string" ? e : "#오류"; } };
+}
+
+/* ---------- 표 칸 편집: 보기의 표를 누르면 칸마다 입력칸이 있는 표로 바뀐다. 고친 내용은 바로 글 칸(탭 줄)에 반영 ---------- */
+let grid=null; // {ta, k, start, len, rows, r, c}
+function openGrid(tableEl){
+  const field=tableEl.closest(".field"), ta=field.querySelector("textarea");
+  const start=+tableEl.dataset.start, len=+tableEl.dataset.len;
+  const rows=ta.value.split("\n").slice(start,start+len).map(l=>l.split("\t"));
+  const n=Math.max(2,...rows.map(r=>r.length)); rows.forEach(r=>{ while(r.length<n) r.push(""); });
+  grid={ta, k:ta.dataset.f, start, len, rows, r:0, c:0};
+  state.grid={id:state.draft?.id, k:grid.k, start};
+  const box=document.createElement("div"); box.className="grid-ed"; tableEl.replaceWith(box); drawGrid();
+}
+function drawGrid(fr,fc){
+  const box=grid.ta.closest(".field").querySelector(".grid-ed"); if(!box) return;
+  const n=grid.rows[0].length, id=(r,c)=>`g-${grid.k}-${r}-${c}`;
+  box.innerHTML=`<div class="grid-bar"><button type="button" class="btn" data-grid="row+">+ 행</button><button type="button" class="btn" data-grid="col+">+ 열</button><button type="button" class="btn" data-grid="row-">행 빼기</button><button type="button" class="btn" data-grid="col-">열 빼기</button><button type="button" class="btn primary" data-grid="done">완료</button></div>`
+    + `<div class="grid-scroll"><table><tr><th></th>${Array.from({length:n},(_,c)=>`<th>${colName(c)}</th>`).join("")}</tr>`
+    + grid.rows.map((r,ri)=>`<tr><th>${ri+1}</th>${r.map((v,ci)=>`<td><input id="${id(ri,ci)}" data-r="${ri}" data-c="${ci}" value="${esc(v)}" autocomplete="off" aria-label="${colName(ci)}${ri+1}"></td>`).join("")}</tr>`).join("")
+    + `</table></div><div class="grid-tip" id="gridTip"></div>`;
+  if(fr!=null){ grid.r=Math.min(fr,grid.rows.length-1); grid.c=Math.min(fc,n-1); document.getElementById(id(grid.r,grid.c))?.focus(); }
+  gridTip();
+}
+function gridWrite(){
+  const lines=grid.ta.value.split("\n");
+  lines.splice(grid.start, grid.len, ...grid.rows.map(r=>r.join("\t"))); grid.len=grid.rows.length;
+  grid.ta.value=lines.join("\n");
+}
+function gridTip(){
+  const tip=$("#gridTip"); if(!tip || !grid) return;
+  const raw=(grid.rows[grid.r]?.[grid.c]||"").trim(), name=colName(grid.c)+(grid.r+1);
+  tip.innerHTML = isFormula(raw) ? `<b>${name}</b> 결과: <b>${esc(fmtNum(calcTable(grid.rows)(grid.r,grid.c)))}</b>`
+    : `<b>${name}</b> · 수식은 = 로 시작 <code>=B2*C2</code> <code>=SUM(B2:B4)</code> <code>=AVERAGE(B2:B4)</code> MIN · MAX · COUNT · ROUND`;
+}
+function gridAction(a){
+  const {rows}=grid, n=rows[0].length;
+  if(a==="done"){ const ta=grid.ta; grid=null; state.grid=null; refreshRich(ta); return; }
+  if(a==="row+"){ rows.splice(grid.r+1,0,Array(n).fill("")); gridWrite(); drawGrid(grid.r+1,grid.c); return; }
+  if(a==="col+"){ rows.forEach(r=>r.splice(grid.c+1,0,"")); gridWrite(); drawGrid(grid.r,grid.c+1); return; }
+  if(a==="row-"){ if(rows.length<2) return toast("행이 하나뿐이라 뺄 수 없습니다"); rows.splice(grid.r,1); gridWrite(); drawGrid(grid.r,grid.c); return; }
+  if(a==="col-"){ if(n<3) return toast("표는 열이 2개 이상이어야 합니다"); rows.forEach(r=>r.splice(grid.c,1)); gridWrite(); drawGrid(grid.r,grid.c); return; }
+}
+function addTable(ta){
+  if(grid) refreshRich(grid.ta); grid=null;
+  const v=ta.value.replace(/\n+$/,""), start=v ? v.split("\n").length+1 : 0;
+  ta.value=(v ? v+"\n\n" : "")+"항목\t수량\t금액\n\t\t\n\t\t\n합계\t=SUM(B2:B3)\t=SUM(C2:C3)";
+  refreshRich(ta); fit(ta);
+  const t=ta.closest(".field").querySelector(`.rich table[data-start="${start}"]`); if(t){ openGrid(t); drawGrid(1,0); }
 }
 
 /* ---------- 사진: 줄여서(긴 변 2000px JPEG) 드라이브에 올리고, 메모에는 {id,w,h}만 남긴다 ---------- */
@@ -759,12 +884,16 @@ document.addEventListener("click", async e=>{
   const img=e.target.closest("img[data-photo]");
   if(img){ if(img.src){ $("#viewerImg").src=img.src; $("#viewer").hidden=false; } return; }
   if(e.target.closest("#viewer")){ $("#viewer").hidden=true; return; }
+  if(e.target.closest(".grid-ed")){ const g=e.target.closest("[data-grid]"); if(g && grid) gridAction(g.dataset.grid); return; }
+  const tbl=e.target.closest(".rich table");
+  if(tbl && !e.target.closest("a")){ if(grid){ gridAction("done"); return; } openGrid(tbl); drawGrid(0,0); return; } // 다른 표를 열려 있던 중이면 먼저 닫기만
   const rich=e.target.closest(".rich");
-  if(rich && !e.target.closest("a")){ const f=rich.closest(".field"), ta=f.querySelector("textarea"); f.classList.add("editing"); fit(ta); ta.focus(); return; }
+  if(rich && !e.target.closest("a")){ grid=null; state.grid=null; const f=rich.closest(".field"), ta=f.querySelector("textarea"); f.classList.add("editing"); fit(ta); ta.focus(); return; }
   const b=e.target.closest("button,[data-id]");
   if(!e.target.closest(".menu")) $("#newPop").hidden=true;
   if(!b) return;
   if(b.id==="newBtn"){ const p=$("#newPop"); p.hidden=!p.hidden; return; }
+  if(b.dataset.addtable){ const ta=document.getElementById(b.dataset.addtable); if(ta) addTable(ta); return; }
   if(b.id==="doneToggle"){ state.showDone=!state.showDone; readDraftSafe(); render(); return; }
   if(b.dataset.new){ $("#newPop").hidden=true; openMemo(newMemo(b.dataset.new)); return; }
   if(b.dataset.type){ state.type=b.dataset.type; render(); return; }
@@ -818,9 +947,15 @@ document.addEventListener("click", async e=>{
 });
 document.addEventListener("keydown", e=>{
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="s" && state.draft){ e.preventDefault(); saveDraft(); }
+  if(e.key==="Enter" && grid && e.target.closest?.(".grid-ed input")){ e.preventDefault(); // 엑셀처럼 아래 칸으로
+    document.getElementById(`g-${grid.k}-${grid.r+1}-${grid.c}`)?.focus(); return; }
   if(e.key==="Enter" && e.target.classList?.contains("item")){ const m=memos.find(x=>x.id===e.target.dataset.id); if(m) openMemo(m); }
 });
-document.addEventListener("input", e=>{ if(e.target.matches("#editor textarea")) fit(e.target); });
+document.addEventListener("input", e=>{
+  if(e.target.matches("#editor textarea")) fit(e.target);
+  if(grid && e.target.matches(".grid-ed input")){ grid.r=+e.target.dataset.r; grid.c=+e.target.dataset.c; grid.rows[+e.target.dataset.r][+e.target.dataset.c]=e.target.value.replace(/\t/g," "); gridWrite(); gridTip(); }
+});
+document.addEventListener("focusin", e=>{ if(grid && e.target.matches?.(".grid-ed input")){ grid.r=+e.target.dataset.r; grid.c=+e.target.dataset.c; gridTip(); } });
 document.addEventListener("focusout", e=>{ if(e.target.matches?.("#editor textarea")) refreshRich(e.target); });
 document.addEventListener("change", e=>{ if(e.target.id==="photoInput"){ const files=[...e.target.files]; e.target.value=""; addPhotos(files); } });
 document.addEventListener("paste", e=>{
