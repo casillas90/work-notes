@@ -136,6 +136,13 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
 .pop button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:8px;display:flex;gap:10px;align-items:center}
 .pop button:hover{background:var(--accent);color:var(--accent-ink)}
 .pop .dot{width:9px;height:9px;border-radius:50%}
+.links{position:relative}
+.links .pop{min-width:250px}
+.links .pop a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:inherit;text-decoration:none}
+.links .pop a:hover{background:var(--accent);color:var(--accent-ink)}
+.links .pop a small{margin-left:auto;font-size:11px;color:var(--muted)}
+.links .pop a:hover small{color:inherit;opacity:.8}
+.links .pop .pop-label{font-size:11px;font-weight:600;color:var(--muted);padding:8px 10px 3px}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:grid;place-items:center;z-index:30;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
 .sheet .box{background:var(--surface);border-radius:18px;box-shadow:var(--pop-shadow);width:min(560px,100%);max-height:100%;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:10px}
 .sheet .box strong{font-size:17px;letter-spacing:-.015em}
@@ -239,6 +246,9 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
   #newBtn{padding:15px 24px;font-size:17px;box-shadow:0 8px 24px rgba(0,113,227,.35)}
   .pop{top:auto;bottom:calc(100% + 10px);min-width:220px}
   .pop button{padding:13px 14px;font-size:16px}
+  /* 휴대폰에서는 화면 아래 판으로 (옆으로 넘치지 않고, 뒤 글자가 비치지 않게) */
+  .links .pop{position:fixed;top:auto;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));min-width:0;max-height:75vh;overflow:auto;background:var(--surface);z-index:40}
+  .links .pop a{padding:13px 14px;font-size:16px}
   .toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   /* 편집 화면 */
   .ed-head{flex-wrap:nowrap;gap:6px;padding:10px 12px}
@@ -273,6 +283,10 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
   <header>
     <div class="brand"><h1>업무노트</h1><small>할 일 · 회의록 · 통화 · 거래처 · 업무일지</small></div>
     <span class="store" id="store"><i></i><span id="storeText">불러오는 중</span></span>
+    <div class="links">
+      <button class="btn" id="linksBtn" type="button" aria-haspopup="true">바로가기</button>
+      <div class="pop" id="linksPop" hidden></div>
+    </div>
     <button class="btn" id="backupBtn" type="button">설정·백업</button>
     <div class="menu">
       <button class="btn primary" id="newBtn" type="button" aria-haspopup="true">+ 새 메모</button>
@@ -316,7 +330,7 @@ aside{display:flex;flex-direction:column;gap:18px;overflow:auto;padding-top:2px}
     <span style="color:var(--muted);font-size:13px">아래 내용을 복사해 두면 백업이 됩니다. 다른 기기에서 붙여넣고 '복원'을 누르면 메모가 합쳐집니다.</span>
     <textarea id="backupText" aria-label="백업 데이터"></textarea>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 11.5-1</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
+      <span style="margin-right:auto;font-size:12px;color:var(--muted)">버전 11.10-1</span><!-- 고칠 때마다 올림: 휴대폰이 옛 화면을 보여 주는지 확인용 -->
       <button class="btn" id="copyBackup" type="button">복사</button>
       <button class="btn" id="restoreBackup" type="button">복원</button>
       <button class="btn primary" id="closeSheet" type="button">닫기</button>
@@ -968,7 +982,11 @@ document.addEventListener("click", async e=>{
     const f=rich.closest(".field"), ta=f.querySelector("textarea"); rich.dataset.src=ta.value; f.classList.add("editing"); fit(ta); ta.focus(); return; }
   const b=e.target.closest("button,[data-id]");
   if(!e.target.closest(".menu")) $("#newPop").hidden=true;
+  if(!e.target.closest(".links") || e.target.closest("#linksPop a")) $("#linksPop").hidden=true;
   if(!b) return;
+  if(b.dataset.newlinks){ $("#linksPop").hidden=true; const m=newMemo("info"); m.title="바로가기"; m.tags=["바로가기"]; m.fields.category="바로가기";
+    m.fields.body="웹에서 열기\n이름 | https://주소\n"; openMemo(m); return; }
+  if(b.id==="linksBtn"){ const p=$("#linksPop"); if(p.hidden) renderLinks(); p.hidden=!p.hidden; if(!p.hidden) move([p], {opacity:[0,1], translateY:[-4,0], duration:160}); return; }
   if(b.id==="newBtn"){ const p=$("#newPop"); p.hidden=!p.hidden; if(!p.hidden) move([p], {opacity:[0,1], translateY:[-4,0], duration:160}); return; }
   if(b.dataset.addtable){ const ta=document.getElementById(b.dataset.addtable); if(ta) addTable(ta); return; }
   if(b.id==="doneToggle"){ state.showDone=!state.showDone; readDraftSafe(); render(); return; }
@@ -1079,6 +1097,21 @@ if(window.visualViewport){ visualViewport.addEventListener("resize",fitEditor); 
 $("#q").addEventListener("input",e=>{ state.q=e.target.value; readDraftSafe(); render(); });
 $("#sort").addEventListener("change", e=>{ state.sort=e.target.value; try{ localStorage.setItem("memo-ui", JSON.stringify({sort:state.sort})); }catch(err){} readDraftSafe(); render(); });
 function readDraftSafe(){ if(state.draft && $("#f-title")) readDraft(); }
+// 바로가기 (2026-11-10). 주소는 코드에 넣지 않고(공개 사이트라서) '정보' 메모 중 태그 '바로가기'가 달린 메모의 내용에서 읽음
+// 내용은 한 줄에 하나: '이름 | 주소' 또는 '이름 | 주소 | 작은 글씨'. '|'가 없는 줄은 묶음 제목. 주소는 http·https만 링크로 만듦
+function linkMemos(){ return memos.filter(m => m.type==="info" && (m.tags||[]).indexOf("바로가기")>=0); }
+function renderLinks(){
+  const rows = [];
+  linkMemos().forEach(m => String((m.fields||{}).body||"").split(/\r?\n/).forEach(line => {
+    const s = line.trim(); if(!s) return;
+    const parts = s.split("|").map(x => x.trim());
+    if(parts.length >= 2 && /^https?:\/\//i.test(parts[1]))
+      rows.push(`<a href="${esc(parts[1])}" target="_blank" rel="noopener">${esc(parts[0]||parts[1])}${parts[2] ? `<small>${esc(parts[2])}</small>` : ""}</a>`);
+    else if(parts.length === 1) rows.push(`<div class="pop-label">${esc(s)}</div>`);
+  }));
+  $("#linksPop").innerHTML = rows.length ? rows.join("")
+    : `<div class="pop-label">아직 바로가기가 없습니다</div><button type="button" data-newlinks="1">바로가기 메모 만들기</button>`;
+}
 $("#newPop").innerHTML = newTypes().map(([k,v])=>`<button type="button" data-new="${k}"><span class="dot" style="background:var(${v.color})"></span>${v.name}</button>`).join("");
 
 async function seed(){
